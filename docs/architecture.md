@@ -1,23 +1,22 @@
-# TB-CareFlow — proposed investigation architecture
+# TB-CareFlow — intended sponsor architecture (not yet implemented)
 
 ```mermaid
 flowchart TD
-  A[Select synthetic TB follow-up case] --> P[Plan required evidence]
-  P --> Z[Zetaris: query screening, test, result, SITB-like follow-up tables]
-  Z --> V[Normalize IDs and inspect event sequence]
-  V --> M[Meterless: critique gaps with source evidence IDs]
-  M --> D{Contradiction or missing data?}
-  D -- Yes --> R[Targeted re-query with bounded retry]
-  R --> E{Resolved?}
-  E -- No --> H[Escalate uncertain case to coordinator]
-  E -- Yes --> O[Auditable reconciliation result]
-  D -- No --> O
-  O --> U[Human reviewed worklist]
-  H --> U
+  A[Select synthetic TB record bundle] --> Z[Zetaris: query screening, lab and SITB-like records]
+  Z --> N[Python: normalize identifiers and event timestamps]
+  N --> W[Meterless World Model: append provenance-linked events and maintain case state]
+  W --> V[Verifier: evidence checks and possible separate LLM review]
+  V --> D{Missing or conflicting records?}
+  D -- Yes --> R[Bounded query retry and inspection]
+  R --> W
+  D -- No --> Q[Reviewed evidence summary]
+  V --> H[Unresolved exceptions to coordinator]
+  H --> Q
+  Q --> U[Human-reviewed follow-up worklist]
 ```
 
-**This is intended architecture, NOT proof of sponsor integrations.** Existing Python pre-hackathon implementation is deterministic and generic; Zetaris and Meterless interfaces are unimplemented.
+**Sponsor role correction (19 Oct 2026):** Meterless World Model supplies event-sourced state, identity resolution and provenance. It is **not** automatically an LLM evaluator. Semantic critique, if added, will be a separate agent component with independent validation; do not imply an LLM model is supplied merely by importing a World Model reference.
 
-Target user: Puskesmas TB programme coordinator. Target task: exception investigation across synthetic screening, diagnostic and documented follow-up events.
+Proposed integration boundary: Python CLI and deterministic validation + Zetaris queries; TypeScript Meterless World Model reference as local service/process. Verify compatibility with the official source docs before implementation.
 
-Human clinician/coordinator must approve real-world follow-up, communications or changes to SITB. A missing event can mean data delay; it must not be equated with missing care or nonadherence.
+Current code is generic synthetic deterministic scaffold only. All new runtime work is pending the official build window. No real patient data, autonomous clinical actions, official SITB connection, or unapproved outreach.
