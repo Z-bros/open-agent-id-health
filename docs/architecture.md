@@ -1,20 +1,23 @@
-# Architecture v0 — problem neutral
+# TB-CareFlow — proposed investigation architecture
 
 ```mermaid
 flowchart TD
-    A[Approved synthetic case] --> B[Query records]
-    B --> C{Record available?}
-    C -- No --> D[Bounded retry]
-    D --> C
-    C -- Yes --> E[Verify identifiers]
-    E --> F{Mismatch?}
-    F -- Yes --> G[Discrepancy + evidence trace]
-    F -- No --> H[Verified record trace]
-    C -- Retry exhausted --> G
-    G --> I[Human review package]
-    H --> I
-    I --> J[Human approval required]
+  A[Select synthetic TB follow-up case] --> P[Plan required evidence]
+  P --> Z[Zetaris: query screening, test, result, SITB-like follow-up tables]
+  Z --> V[Normalize IDs and inspect event sequence]
+  V --> M[Meterless: critique gaps with source evidence IDs]
+  M --> D{Contradiction or missing data?}
+  D -- Yes --> R[Targeted re-query with bounded retry]
+  R --> E{Resolved?}
+  E -- No --> H[Escalate uncertain case to coordinator]
+  E -- Yes --> O[Auditable reconciliation result]
+  D -- No --> O
+  O --> U[Human reviewed worklist]
+  H --> U
 ```
 
-The agent is **deterministic only at present**. Zetaris and Meterless are placeholders, not functioning integrations.
-Unavailability is not proof of clinical or administrative wrongdoing. No autonomous patient routing, treatment, claims decisions or messaging.
+**This is intended architecture, NOT proof of sponsor integrations.** Existing Python pre-hackathon implementation is deterministic and generic; Zetaris and Meterless interfaces are unimplemented.
+
+Target user: Puskesmas TB programme coordinator. Target task: exception investigation across synthetic screening, diagnostic and documented follow-up events.
+
+Human clinician/coordinator must approve real-world follow-up, communications or changes to SITB. A missing event can mean data delay; it must not be equated with missing care or nonadherence.
