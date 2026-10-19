@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=65","wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-agent-id-health"
+version = "0.0.1"
+description = "Synthetic healthcare evidence reconciliation scaffold"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+healthagent = "healthagent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

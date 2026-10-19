@@ -1,0 +1,123 @@
+{
+  "_warning": "ALL records are fabricated for offline tests; no real patients or facilities.",
+  "cases": [
+    {
+      "case_id": "CASE-REF-OK",
+      "workflow": "referral_documentation",
+      "subject_ref": "DEMO-A",
+      "required_sources": [
+        "request",
+        "facility_directory",
+        "authorization"
+      ]
+    },
+    {
+      "case_id": "CASE-DX-MISSING",
+      "workflow": "diagnostic_followup",
+      "subject_ref": "DEMO-B",
+      "required_sources": [
+        "exam_order",
+        "completion_record",
+        "report_acknowledgement"
+      ]
+    },
+    {
+      "case_id": "CASE-TB-CONFLICT",
+      "workflow": "tb_followup",
+      "subject_ref": "DEMO-C",
+      "required_sources": [
+        "screening_log",
+        "laboratory_record",
+        "followup_log"
+      ]
+    },
+    {
+      "case_id": "CASE-REF-TRANSIENT",
+      "workflow": "referral_documentation",
+      "subject_ref": "DEMO-D",
+      "required_sources": [
+        "request",
+        "facility_directory"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "case_id": "CASE-REF-OK",
+      "source": "request",
+      "record_id": "R-001",
+      "subject_ref": "DEMO-A",
+      "value": "sample request"
+    },
+    {
+      "case_id": "CASE-REF-OK",
+      "source": "facility_directory",
+      "record_id": "F-001",
+      "subject_ref": "DEMO-A",
+      "value": "illustrative capability data"
+    },
+    {
+      "case_id": "CASE-REF-OK",
+      "source": "authorization",
+      "record_id": "A-001",
+      "subject_ref": "DEMO-A",
+      "value": "sample authorization record"
+    },
+    {
+      "case_id": "CASE-DX-MISSING",
+      "source": "exam_order",
+      "record_id": "O-002",
+      "subject_ref": "DEMO-B",
+      "value": "sample imaging order"
+    },
+    {
+      "case_id": "CASE-DX-MISSING",
+      "source": "completion_record",
+      "record_id": "C-002",
+      "subject_ref": "DEMO-B",
+      "value": "sample completion log"
+    },
+    {
+      "case_id": "CASE-TB-CONFLICT",
+      "source": "screening_log",
+      "record_id": "S-003",
+      "subject_ref": "DEMO-C",
+      "value": "sample screening event"
+    },
+    {
+      "case_id": "CASE-TB-CONFLICT",
+      "source": "laboratory_record",
+      "record_id": "L-003",
+      "subject_ref": "DEMO-OTHER",
+      "value": "purposely mismatched reference"
+    },
+    {
+      "case_id": "CASE-TB-CONFLICT",
+      "source": "followup_log",
+      "record_id": "P-003",
+      "subject_ref": "DEMO-C",
+      "value": "sample follow-up"
+    },
+    {
+      "case_id": "CASE-REF-TRANSIENT",
+      "source": "request",
+      "record_id": "R-004",
+      "subject_ref": "DEMO-D",
+      "value": "sample request"
+    },
+    {
+      "case_id": "CASE-REF-TRANSIENT",
+      "source": "facility_directory",
+      "record_id": "F-004",
+      "subject_ref": "DEMO-D",
+      "value": "illustrative directory"
+    }
+  ],
+  "transient_failures": [
+    {
+      "case_id": "CASE-REF-TRANSIENT",
+      "source": "facility_directory",
+      "fail_count": 1
+    }
+  ]
+}
