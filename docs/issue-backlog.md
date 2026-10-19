@@ -1,13 +1,16 @@
-# Priority issue backlog
+# TB-CareFlow implementation backlog (19 October 2026)
 
-1. P0 — Freeze problem + published Indonesian workflow evidence.
-2. P0 — Verify Zetaris, Meterless, Cursor/Space XAI access.
-3. P0 — Implement Zetaris synthetic evidence adapter.
-4. P0 — Implement Meterless grounded critique + bounded re-query.
-5. P0 — Domain benchmark: normal, missing, conflicting and recovery cases.
-6. P0 — Human review worklist with evidence references.
-7. P0 — Demo recording, slides and sponsor disclosures.
-8. P0 — Submit on HackOS; verify fresh checkout and security.
-9. P1 — Deployment + extra adversarial testing only if P0 complete.
+The project direction is locked: reconcile fabricated TB screening, testing and follow-up records, investigate exceptional handoffs, and deliver an evidence-backed worklist to Puskesmas TB coordinators.
 
-The scaffold created 19 Oct 2026 predates the official competition build window.
+1. Done — [#1](../issues/1): select use case and ground its relevance in Kemenkes and WHO sources.
+2. P0 — [#2](../issues/2): verify Zetaris, Meterless, Cursor and Space XAI.
+3. P0 — [#5](../issues/5): build the synthetic TB event sequence benchmark.
+4. P0 — [#3](../issues/3): query synthetic evidence via Zetaris.
+5. P0 — [#4](../issues/4): implement Meterless critique and bounded re-query.
+6. P0 — [#6](../issues/6): coordinator review worklist and audit trace.
+7. P0 — [#7](../issues/7): record demo, slides and sponsor explanation.
+8. P0 — [#8](../issues/8): submission and pre-existing-work disclosure.
+
+**Existing SITB + SSI CKG integration (since April 2026) is not being rebuilt.** The extra usefulness of exception investigation is a prototype hypothesis, not an established measured benefit.
+
+All current scaffolding predates the October 22 official build window and must be declared at submission.
