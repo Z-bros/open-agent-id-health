@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "CASE-TB-DEMO",
+  "hypotheses": [
+    {
+      "hypothesis": "The simulated lab-result source was temporarily unavailable.",
+      "assessment": "supported",
+      "reason": "A source check reported temporary unavailability; no clinical inference follows.",
+      "evidence_record_ids": [
+        "SYN-S-001"
+      ]
+    }
+  ],
+  "unresolved_questions": [
+    "Does evidence become available when the source recovers?"
+  ],
+  "requires_human_approval": true
+}

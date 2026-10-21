@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "CASE-TB-DEMO",
+  "max_queries": 1,
+  "actions": [
+    {
+      "action": "read_only_source_query",
+      "reason": "One permitted retry after a temporary outage.",
+      "source_system": "lab_results",
+      "evidence_record_ids": [
+        "SYN-S-001"
+      ]
+    },
+    {
+      "action": "manual_review",
+      "reason": "Escalate if still unavailable.",
+      "evidence_record_ids": [
+        "SYN-S-001"
+      ]
+    }
+  ],
+  "requires_human_approval": true
+}

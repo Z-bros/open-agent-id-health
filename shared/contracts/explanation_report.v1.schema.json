@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tb-careos:explanation_report:v1",
+  "title": "Synthetic administrative explanation report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "hypotheses",
+    "unresolved_questions",
+    "requires_human_approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hypothesis",
+          "assessment",
+          "reason",
+          "evidence_record_ids"
+        ],
+        "properties": {
+          "hypothesis": {
+            "type": "string"
+          },
+          "assessment": {
+            "enum": [
+              "supported",
+              "contradicted",
+              "unresolved"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "evidence_record_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires_human_approval": {
+      "const": true
+    }
+  }
+}

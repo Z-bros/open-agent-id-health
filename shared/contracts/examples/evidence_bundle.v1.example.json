@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "CASE-TB-DEMO",
+  "observations": [
+    {
+      "record_id": "SYN-S-001",
+      "source_system": "screening",
+      "source_record_id": "screening-001",
+      "subject_ref": "SYN-P-001",
+      "record_type": "screening_event",
+      "observed_at": "2026-10-01T08:00:00Z"
+    }
+  ],
+  "exceptions": [
+    {
+      "category": "unavailable_evidence",
+      "description": "Simulated lab-result source unavailable; delivery of care unknown.",
+      "evidence_record_ids": [
+        "SYN-S-001"
+      ]
+    }
+  ],
+  "source_checks": [
+    {
+      "source_system": "lab_results",
+      "attempt": 1,
+      "status": "temporarily_unavailable",
+      "checked_at": "2026-10-01T08:10:00Z"
+    }
+  ],
+  "requires_human_approval": true
+}

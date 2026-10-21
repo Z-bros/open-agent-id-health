@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tb-careos:verification_plan:v1",
+  "title": "Bounded administrative verification plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "max_queries",
+    "actions",
+    "requires_human_approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "max_queries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason",
+          "evidence_record_ids"
+        ],
+        "properties": {
+          "action": {
+            "enum": [
+              "read_only_source_query",
+              "manual_review",
+              "stop"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source_system": {
+            "type": "string"
+          },
+          "evidence_record_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "requires_human_approval": {
+      "const": true
+    }
+  }
+}
