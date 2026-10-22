@@ -197,6 +197,33 @@ class NvidiaTransportTests(unittest.TestCase):
         self.assertEqual(body["reasoning_effort"], "none")
         self.assertNotIn("FAKE-UNIT-TEST-KEY", json.dumps(body))
 
+    def test_ultra_disables_thinking_for_bounded_json(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, max_size): return json.dumps({
+                "choices": [{"finish_reason": "stop",
+                             "message": {"content": sample_response()}}]
+            }).encode("utf-8")
+
+        client = NVIDIAChatClient(
+            api_key="FAKE-UNIT-TEST-KEY",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
+            timeout_seconds=30,
+        )
+        with patch("urllib.request.urlopen", return_value=Response()) as urlopen:
+            result = client.complete([
+                {"role": "system", "content": "Explain synthetic evidence"},
+                {"role": "user", "content": "CASE-TB-018"},
+            ])
+        self.assertEqual(result, sample_response())
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "https://integrate.api.nvidia.com/v1/chat/completions")
+        payload = json.loads(request.data)
+        self.assertEqual(payload["model"], "nvidia/nemotron-3-ultra-550b-a55b")
+        self.assertEqual(payload["reasoning_effort"], "none")
+        self.assertIs(payload["stream"], False)
+
     def test_wrong_response_shape_fails_closed(self):
         class Response:
             def __enter__(self): return self
