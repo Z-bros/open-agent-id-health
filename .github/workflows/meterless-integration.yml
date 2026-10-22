@@ -1,0 +1,54 @@
+name: Meterless World Model integration
+on:
+  push:
+  pull_request:
+
+jobs:
+  meterless-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch original Meterless World Model reference
+        run: git clone --depth 1 https://github.com/Meterless/Meterless.git "$RUNNER_TEMP/meterless"
+      - name: Install reference development runner (not TB-CareOS vendoring)
+        run: npm ci --prefix "$RUNNER_TEMP/meterless/engines/world-model/reference"
+      - name: Run genuine World Model against a synthetic E02 fixture
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/meterless_first.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/meterless_first.json"))
+          assert d["input_observations"] == 4
+          assert d["first_pass"]["processed"] == 4
+          assert d["first_pass"]["events_appended"] > 0
+          assert d["replay"]["state_unchanged"]
+          assert d["replay"]["processed"] == 0
+          print("TB-CareOS -> real Meterless ingest: 4 new observations, replay idempotent")
+          PY
+      - name: Reopen persisted World Model and confirm unchanged projection
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/meterless_second.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open("/tmp/meterless_first.json"))
+          b=json.load(open("/tmp/meterless_second.json"))
+          assert b["first_pass"]["processed"] == 0
+          assert b["first_pass"]["events_appended"] == 0
+          assert b["replay"]["state_unchanged"]
+          assert b["durable_state"]["event_count"] == a["durable_state"]["event_count"]
+          print("Restart persistence: zero duplicate events; audit history reloaded")
+          PY
