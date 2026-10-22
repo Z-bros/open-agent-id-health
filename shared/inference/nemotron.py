@@ -32,12 +32,16 @@ class NVIDIAChatClient:
     """
 
     def __init__(self, *, api_key: str | None = None,
-                 model: str | None = None, timeout_seconds: int = 75):
+                 model: str | None = None, timeout_seconds: int | None = None):
         self.api_key = api_key if api_key is not None else os.environ.get("NVIDIA_API_KEY", "")
         self.model = model or os.environ.get("NEMOTRON_MODEL", DEFAULT_MODEL)
         if not _MODEL_NAME.fullmatch(self.model):
             raise ValueError("NEMOTRON_MODEL must be a provider/model identifier")
-        if not 10 <= timeout_seconds <= 180:
+        # Hosted Ultra may take longer to produce a complete non-streaming
+        # answer. Keep ordinary Nemotron requests at the shorter 75s budget.
+        if timeout_seconds is None:
+            timeout_seconds = 180 if self.model == ULTRA_MODEL else 75
+        if not isinstance(timeout_seconds, int) or not 10 <= timeout_seconds <= 180:
             raise ValueError("Nemotron timeout must be 10 to 180 seconds")
         self.timeout_seconds = timeout_seconds
 
@@ -81,8 +85,18 @@ class NVIDIAChatClient:
         except urllib.error.HTTPError as exc:
             # Avoid disclosing potentially sensitive response bodies and tokens.
             raise NemotronError(f"NVIDIA API HTTP {exc.code}; check key, model access and limits") from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise NemotronError("Nemotron inference request failed (connection/timeout)") from exc
+        except TimeoutError as exc:
+            raise NemotronError(
+                f"NVIDIA request timed out (configured timeout {self.timeout_seconds}s)"
+            ) from exc
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                raise NemotronError(
+                    f"NVIDIA request timed out (configured timeout {self.timeout_seconds}s)"
+                ) from exc
+            raise NemotronError("NVIDIA connection failed (network/DNS/TLS)") from exc
+        except OSError as exc:
+            raise NemotronError("NVIDIA connection failed (socket/network)") from exc
 
         try:
             obj = json.loads(raw)
