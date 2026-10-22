@@ -2,8 +2,14 @@
 
 **Status (22 Oct 2026):** E05 post-kickoff implementation, stacked on the
 E04 CaseLens branch. The prebuild was schema + CLI placeholder only.
-GitHub CI tests use **no live NVIDIA or Zetaris endpoints**; a live WSL2
-verification must be run separately before claiming complete E05 integration.
+GitHub CI tests use **no live NVIDIA or Zetaris endpoints**.
+**Participant-confirmed live E05 integration passed on 22 Oct 2026** for the
+single synthetic case CASE-TB-018: Nemotron 3.5 Lightning selection from a
+saved fixture, and Zetaris TBCARE_OS read-only retrieval combined with the
+E04 CaseLens explanation report, both emitted valid verification_plan.v1
+with two read-only query proposals, manual_review and stop. This demonstrates
+a real provider call through the CLI, but does not establish cross-case
+accuracy or model reliability across the full 36-case dataset.
 
 ## Role, input, output
 
@@ -96,3 +102,6 @@ queries, prompts, or plans.
 - Source-check retry and visibility simulation are not implemented.
 - Cross-case performance and repeated provider availability still need
   independent testing. Use fabricated administrative records only.
+- Current source-query actions cite both sides of a conflict as context;
+  they do not yet specify a source-specific query predicate or implement
+  execution. Refine source-target fields before introducing any lookup runner.
