@@ -15,3 +15,10 @@ dist/
 outputs/
 logs/
 local_data/
+
+# Keep benchmark answer keys separate from agent-facing sources.
+**/ground_truth_holdout.csv
+
+# Pre-existing TB-v1 ZIP is a local evaluation asset, not agent source code.
+# Keep holdout and scenario labels outside the repo / Zetaris evidence import.
+data/synthetic/tb_v1/
