@@ -105,6 +105,24 @@ class DashboardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_dashboard(b, plan=p)
 
+    def test_rejects_reordered_explanations_across_findings(self):
+        b = evidence()
+        b["exceptions"].append({
+            "category": "duplicate_business_event_replay",
+            "description": "Synthetic duplicate row review.",
+            "evidence_record_ids": ["ORD-TB-018"],
+        })
+        x = explanation()
+        x["hypotheses"].append({
+            "hypothesis": "Administrative review finding: duplicate_business_event_replay",
+            "assessment": "supported",
+            "reason": "Check the fabricated order row ID for a potential repeated import.",
+            "evidence_record_ids": ["ORD-TB-018"],
+        })
+        x["hypotheses"].reverse()
+        with self.assertRaisesRegex(ValueError, "order"):
+            render_dashboard(b, explanation=x)
+
     def test_rejects_unsupported_plan_action(self):
         b = evidence()
         p = plan_case(b)
