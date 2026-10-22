@@ -74,6 +74,25 @@ Run genuine NVIDIA inference:
       --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
       --output outputs/e04_case_tb_018.json
 
+### Authorized Nemotron 3 Ultra fallback (22 Oct 2026)
+
+Participant obtained **HTTP 200** for a minimal hosted NVIDIA chat completion
+using `nvidia/nemotron-3-ultra-550b-a55b`, while the default Nemotron 3
+Super returned 404 and Nemotron 3.5 Lightning returned 403. This verifies
+Ultra endpoint access **only**, not yet a successful end-to-end E04 report.
+The adapter explicitly sends `reasoning_effort: none` for Ultra, matching the
+minimal probe and conserving its bounded strict-JSON response budget. Ultra is
+hosted; no local 550B model download is required.
+
+    PYTHONPATH=src:. python3 -m apps.caselens \
+      --case-id CASE-TB-018 --namespace TBCARE_OS \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --model nvidia/nemotron-3-ultra-550b-a55b \
+      --output outputs/e04_case_tb_018.json
+
+If Ultra returns invalid JSON or incomplete citations, CaseLens fails closed;
+retain the error and diagnose model conformance rather than disabling checks.
+
 Or test with a saved **synthetic** E02 bundle (no Zetaris required):
 
     PYTHONPATH=src:. python3 -m apps.caselens \
