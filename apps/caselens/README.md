@@ -3,9 +3,13 @@
 **Status (22 Oct 2026):** The post-kickoff evidence-grounded module and CLI
 are implemented in branch feat/caselens-nemotron-e04. The prebuild version
 was an empty --help scaffold. Offline tests with a mocked LLM passed.
-**A real NVIDIA Nemotron inference call has NOT yet been demonstrated from
-the participant's WSL2 terminal.** Do not present mock outputs as inference.
-All data is fabricated TB administrative metadata.
+**Participant-reported live E04 Nemotron 3.5 Lightning inference SUCCESS**
+for `CASE-TB-018`: both the saved synthetic fixture and the live Zetaris
+`TBCARE_OS` read path produced a valid CaseLens explanation report with the
+fixed `subject_mismatch` finding, citations `CASE-TB-018` and `RES-TB-018`,
+both conflicting synthetic subject references, and `requires_human_approval:
+true`. This is initial **single-case end-to-end evidence**, not a cross-case
+reliability benchmark. All data is fabricated TB administrative metadata.
 
 CaseLens accepts evidence_bundle.v1 from CareFlow and emits the existing
 explanation_report.v1 contract. Its job is nonclinical explanation, never
@@ -133,8 +137,9 @@ printing model output, provider error bodies, or secrets.
       --output outputs/e04_case_tb_018.json
 
 The Lightning transport still has a default 75s timeout; the 180s timeout
-change only applies to Ultra. A valid full explanation_report is NOT yet
-confirmed. CaseLens continues to fail closed on incomplete or unsafe answers.
+change only applies to Ultra. A valid full explanation_report has now been
+reported by the participant for both fixture and Zetaris live reads using
+Lightning. CaseLens continues to fail closed on incomplete or unsafe answers.
 
 ## Known limitations / pending
 
@@ -145,4 +150,6 @@ confirmed. CaseLens continues to fail closed on incomplete or unsafe answers.
   only source evidence and CareFlow findings).
 - E02 delayed visibility/source-check retry simulation remains pending.
 - No actual patient data, clinical outcomes, human outreach or source writes.
-- Live Nemotron inference and account permissions require participant testing.
+- Lightning live inference was demonstrated for CASE-TB-018; extended multi-case
+  evaluation, provider reliability and account permissions for other models
+  still require testing.
