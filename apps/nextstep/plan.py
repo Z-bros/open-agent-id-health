@@ -185,6 +185,8 @@ def validate_plan(bundle: dict[str, Any], plan: dict[str, Any]) -> None:
         raise NextStepValidationError("Query cap exceeds effective contract bound")
     if not isinstance(actions, list) or not 2 <= len(actions) <= MAX_CONTRACT_ACTIONS:
         raise NextStepValidationError("Plan action count invalid")
+    if not all(isinstance(x, dict) for x in actions):
+        raise NextStepValidationError("Plan actions must be objects")
     if [x.get("action") for x in actions[-2:]] != ["manual_review", "stop"]:
         raise NextStepValidationError("Plan must end with human review and stop")
     refs = {o["record_id"] for o in bundle["observations"]}
