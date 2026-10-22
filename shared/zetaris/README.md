@@ -1,68 +1,88 @@
-# Zetaris adapter — post-kickoff read-only evidence probe
+# Zetaris read-only probe — post-kickoff E01/E02 implementation
 
-Status: **new code written during the official 22 Oct 2026 build window**. The
-read-only adapter and 12 offline unit tests are implemented; this is **not**
-yet verified against the participant's live local Zetaris platform or the
-separate 36-case TB-v1 dataset.
+**Status (22 October 2026 WIB):** New TB-v1-aware read-only source probe with
+offline tests. CI has passed. **Not yet demonstrated** against participant's
+actual Zetaris runtime or registered TB tables. E01 GO requires a real SQL
+query returning fabricated evidence and source IDs.
 
-## What is implemented
+## Verified original prebuild ZIP
 
-- The new readonly.py uses the documented Python query helper in the official
-  Zetaris getting-started repository:
-  https://github.com/zetaris/getting-started/blob/main/scripts/query_zetaris.py
-  It **does not** invent an endpoint or copy credentials into TB-CareOS.
-- A single SQL SELECT is allowed. Fabricated case IDs, namespace names,
-  source names and row limits are validated. ground_truth_holdout is excluded.
-- python3 -m apps.careflow.tb_zetaris_probe queries the six allowlisted
-  synthetic evidence sources, summarizes result counts/source record IDs,
-  and distinguishes a successful empty result (not_found) from outages,
-  authorization failures and unrecognized result formats.
-- No direct clinical action, real patient source, automated write, or data
-  upload is performed by the probe.
+The separately prepared 36-case synthetic ZIP has now been supplied and its
+bundled verifier passed (36 cases, 163 evidence rows, 216 synthetic source checks,
+and 36 held-out labels). The ZIP, including 21 Oct generation, is pre-existing.
 
-## Read-only local instructions (participant's WSL2/Cursor machine)
+- Five evidence tables: cases, screening_events, lab_orders, lab_results,
+  followup_events. These are the ONLY tables the evidence probe queries.
+- source_checks.csv: replay-harness metadata; NOT clinical documentation.
+  Original handoff's six source files = five evidence tables plus simulation.
+- ground_truth_holdout.csv: scoring only; NEVER give to agent/Zetaris.
+- The entire extracted data/synthetic/tb_v1/ is gitignored.
+- All five tables have case_id. Event row provenance is ingest_row_id except
+  cases (case_id); business IDs differ by table (event_id, order_id,
+  result_id, followup_event_id). Duplicate business IDs may be intentional.
+- visible_from_attempt and simulated source access must be applied in the
+  later retry harness. This raw data-access probe DOES NOT apply them.
 
-1. Check out the official Zetaris getting-started repository **you already
-   have**. The checked-out scripts/query_zetaris.py must work using its
-   documented .env.local credentials; keep this file outside Git.
-2. Confirm the **six actual TB-v1 CSV headers** and which namespace has the
-   six registered fabricated source tables. The initial probe expects each
-   source to have a case_id column; do not run it as-is if the actual CSV
-   headers differ. Do not register ground_truth_holdout.csv.
-3. Inspect generated SQL without contacting Zetaris:
+## Implemented
 
-       python3 -m apps.careflow.tb_zetaris_probe \
-         --namespace YOUR_TEAM_NAMESPACE --case-id YOUR_SYNTHETIC_CASE_ID --dry-run
+- shared/zetaris/readonly.py: bounded allowlisted SELECT, verified Python
+  helper path, no invented HTTP route, no arbitrary table access/writes.
+- apps/careflow/tb_zetaris_probe.py: summarizes five evidence table queries
+  with source provenance, business IDs and explicit error categories.
+- This is NOT YET contract-valid evidence_bundle.v1 reconciliation or a
+  demonstration of actual sponsor integration.
 
-4. After registering the fabricated CSV sources using the method appropriate
-   to your installed Zetaris edition, run a read-only smoke test:
+## WSL2 instructions
 
-       python3 /absolute/path/to/zetaris-getting-started/scripts/query_zetaris.py "SELECT 1"
+From the local TB-CareOS repo feature branch:
 
-5. Run the live six-source probe with the **actual** namespace and case ID:
+    git pull --ff-only
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
 
-       python3 -m apps.careflow.tb_zetaris_probe \
-         --namespace YOUR_TEAM_NAMESPACE \
-         --case-id YOUR_SYNTHETIC_CASE_ID \
-         --helper /absolute/path/to/zetaris-getting-started/scripts/query_zetaris.py
+Download the original full ZIP to your computer. Its internal directory is
+tb_v1/. Extract from TB-CareOS root (replace the local ZIP path):
 
-Run from the TB-CareOS repository root; set PYTHONPATH=src if needed for the
-legacy tests. The probe uses the Zetaris helper's own environment loading and
-runs under the current Python interpreter. No shell execution is used.
+    mkdir -p data/synthetic
+    python3 -m zipfile -e "/path/to/tb-careflow-synthetic-v1.zip" data/synthetic
+    python3 data/synthetic/tb_v1/verify_dataset.py
 
-If the UI returns an unfamiliar result format, the adapter fails closed with
-invalid_response; capture a **redacted** response shape locally before
-updating the parser. Do not treat an HTTP error or unavailable table as a
-successful empty result. A genuine query is required before claiming E01 GO.
+**Zetaris import:** load ONLY the five evidence CSVs. Do not ingest the
+source_checks simulation or ground_truth_holdout. Files on WSL2 cannot be
+assumed accessible by Zetaris: official getting-started documentation uses
+CREATE LIGHTNING FILESTORE TABLE on accessible object storage. Confirm the
+installed local Zetaris edition's CSV upload/registration workflow, storage
+location, team namespace and write permission BEFORE creating any objects.
+See https://github.com/zetaris/getting-started/blob/main/open_data/parquet_csv/HOWTO.md
 
-## Verification and limits
+When the tables exist in your assigned namespace and use the same names as
+the CSV stems, inspect the generated SQL without contacting Zetaris:
 
-    python3 -m unittest discover -s tests -v
+    python3 -m apps.careflow.tb_zetaris_probe \
+      --namespace YOUR_AUTHORIZED_NAMESPACE --case-id CASE-TB-001 --dry-run
 
-The probe is **not yet CareFlow evidence_bundle.v1 reconciliation**: it is
-one step toward E01/E02. Only successful, real Zetaris retrieval of fabricated
-screening, lab and follow-up rows can close E01. No clinical conclusions follow
-from missing administrative documents; the result always requires human review.
+The official query_zetaris.py script loads its own ignored .env.local and
+calls the documented UI proxy. Verify its own SELECT 1 smoke test:
 
-This build reuses the official Zetaris starter **as an external tool**; do not
-commit a vendor copy or reveal secrets in traces/commits.
+    python3 /path/to/zetaris-getting-started/scripts/query_zetaris.py "SELECT 1"
+
+Execute the five-source read-only probe only after table registration:
+
+    python3 -m apps.careflow.tb_zetaris_probe \
+      --namespace YOUR_AUTHORIZED_NAMESPACE \
+      --case-id CASE-TB-001 \
+      --helper /path/to/zetaris-getting-started/scripts/query_zetaris.py
+
+Suggested fabricated demo cases: CASE-TB-001 (complete), CASE-TB-009
+(no result document row), CASE-TB-018 (mismatched synthetic subject ref).
+An empty raw query is NOT proof of missed care. Keep all clinical decisions
+with qualified human staff.
+
+If Zetaris returns an unfamiliar JSON shape, capture its **redacted**
+response shape locally; update the parser only after inspecting evidence.
+
+## Next acceptance gate
+
+A real Zetaris query must return fabricated records with provenance IDs.
+No local code/CI success alone proves E01 integration. Continue next with
+CareFlow evidence_bundle.v1, simulated source retries/visibility, Meterless
+events and coordinator dashboard.
