@@ -57,3 +57,20 @@ jobs:
           assert replay["event_count"] == first["event_count"]
           print("PASS: app-specific Meterless ingest, replay, and cross-process persistence")
           PY
+
+      - name: Diagnose bridge with synthetic CI fixture (no credentials)
+        if: failure()
+        run: |
+          PYTHONPATH=src:. python3 - <<'PY' > /tmp/tb_e03_mapped.json
+          import json
+          from shared.meterless.mapper import to_meterless_observations
+          with open("tests/fixtures/tb_meterless_case_001.json") as f:
+              bundle = json.load(f)
+          print(json.dumps(to_meterless_observations(bundle)))
+          PY
+          cat /tmp/tb_e03_mapped.json | \
+            vendor_meterless/engines/world-model/reference/node_modules/.bin/tsx \
+              shared/meterless/world_model_bridge.ts \
+              --reference vendor_meterless/engines/world-model/reference \
+              --case-id CASE-TB-001 \
+              --state-dir local_data/meterless
