@@ -1,0 +1,146 @@
+"""Fail-closed Zetaris SQL adapter for fabricated TB evidence.
+
+Uses the organizer's documented zetaris/getting-started/scripts/query_zetaris.py
+helper on the participant's machine. No HTTP routes or credentials are invented.
+It does not install or execute the helper itself until query is called.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+from typing import Any
+
+ALLOWED_SOURCES = (
+    "cases", "screening_events", "lab_orders", "lab_results",
+    "followup_events", "source_checks",
+)
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_CASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
+_FORBIDDEN = re.compile(
+    r"\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|"
+    r"REVOKE|EXEC|EXECUTE|CALL|COPY|INTO)\b", re.IGNORECASE
+)
+
+
+class ZetarisQueryError(RuntimeError):
+    """A source query did not complete; never interpret this as no matching rows."""
+
+    def __init__(self, category: str, message: str):
+        super().__init__(message)
+        self.category = category
+
+
+def validate_readonly_select(sql: str) -> str:
+    """Accept a single, plain SELECT; no comments, mutation, or holdout source."""
+    cleaned = sql.strip()
+    if cleaned.endswith(";"):
+        cleaned = cleaned[:-1].strip()
+    if (not cleaned or ";" in cleaned or "--" in cleaned
+            or "/*" in cleaned or "*/" in cleaned
+            or not re.match(r"^SELECT\s", cleaned, re.IGNORECASE)
+            or _FORBIDDEN.search(cleaned)
+            or re.search(r"ground_truth_holdout", cleaned, re.IGNORECASE)):
+        raise ValueError("Only one safe read-only SELECT on non-holdout tables is permitted")
+    return cleaned
+
+
+def case_query(namespace: str, source: str, case_id: str, *, limit: int = 100) -> str:
+    """Construct an allowlisted and bounded source query (no free-form SQL input)."""
+    parts = namespace.split(".")
+    if not 1 <= len(parts) <= 2 or not all(_IDENTIFIER.fullmatch(p) for p in parts):
+        raise ValueError("Namespace must have one or two safe SQL identifiers")
+    if source not in ALLOWED_SOURCES:
+        raise ValueError("Not an allowlisted synthetic evidence source")
+    if not _CASE_ID.fullmatch(case_id):
+        raise ValueError("Unsafe case ID")
+    if not 1 <= limit <= 500:
+        raise ValueError("Source query limit must be between 1 and 500")
+    return validate_readonly_select(
+        f"SELECT * FROM {namespace}.{source} WHERE case_id = '{case_id}' LIMIT {limit}"
+    )
+
+
+def _column_names(obj: Any) -> list[str] | None:
+    if not isinstance(obj, list):
+        return None
+    cols = [c if isinstance(c, str) else c.get("name") if isinstance(c, dict) else None for c in obj]
+    return cols if all(isinstance(c, str) and c for c in cols) else None
+
+
+def parse_query_rows(payload: Any) -> list[dict[str, Any]]:
+    """Normalize JSON rows. Reject unknown shapes rather than claim zero matches."""
+    data = payload
+    columns = None
+    for _ in range(4):
+        if not isinstance(data, dict):
+            break
+        if data.get("success") is False or data.get("error"):
+            raise ZetarisQueryError("error", "Zetaris returned an unsuccessful query result")
+        columns = _column_names(data.get("columns") or data.get("headers")) or columns
+        if "rows" in data:
+            data = data["rows"]
+        elif "data" in data:
+            data = data["data"]
+        elif "result" in data:
+            data = data["result"]
+        else:
+            raise ZetarisQueryError("invalid_response", "Unknown query result format; inspect redacted output locally")
+    if not isinstance(data, list):
+        raise ZetarisQueryError("invalid_response", "Query rows must be a JSON array")
+    if not data:
+        return []
+    if all(isinstance(row, dict) for row in data):
+        return data
+    if columns is not None and all(isinstance(row, list) and len(row) == len(columns) for row in data):
+        return [dict(zip(columns, row)) for row in data]
+    raise ZetarisQueryError("invalid_response", "Rows lack column names; refusing to lose provenance")
+
+
+class ZetarisHelperClient:
+    """Execute exactly one read-only SQL through the official local query helper.
+
+    helper_path must point to a trusted, checked-out query_zetaris.py script.
+    Credentials belong in that checkout's ignored .env.local or process env.
+    """
+
+    def __init__(self, helper_path: str | Path, *, timeout_seconds: int = 45):
+        self.helper_path = Path(helper_path).expanduser().resolve()
+        if self.helper_path.name != "query_zetaris.py" or not self.helper_path.is_file():
+            raise ValueError("Provide the existing official query_zetaris.py helper path")
+        if not 1 <= timeout_seconds <= 120:
+            raise ValueError("Invalid bounded query timeout")
+        self.timeout_seconds = timeout_seconds
+
+    def query(self, sql: str) -> list[dict[str, Any]]:
+        sql = validate_readonly_select(sql)
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(self.helper_path), sql],
+                cwd=str(self.helper_path.parent.parent),
+                capture_output=True, text=True, encoding="utf-8",
+                timeout=self.timeout_seconds, check=False,
+                env=os.environ.copy(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ZetarisQueryError("temporarily_unavailable", "Zetaris query timed out") from exc
+        except OSError as exc:
+            raise ZetarisQueryError("error", "Unable to launch local Zetaris helper") from exc
+        if completed.returncode != 0:
+            # Avoid propagating raw stderr: some clients may include sensitive values.
+            reason = completed.stderr.lower()
+            if re.search(r"\b(?:http\s*)?(?:401|403)\b|forbidden|permission|unauthori[sz]ed", reason):
+                category = "permission_denied"
+            elif any(k in reason for k in ("timeout", "timed out", "cannot reach", "connection refused", "unreachable")):
+                category = "temporarily_unavailable"
+            else:
+                category = "error"
+            raise ZetarisQueryError(category, "Local Zetaris helper failed; inspect its diagnostics privately")
+        try:
+            payload = json.loads(completed.stdout)
+        except (ValueError, TypeError) as exc:
+            raise ZetarisQueryError("invalid_response", "Local Zetaris helper did not emit JSON") from exc
+        return parse_query_rows(payload)
