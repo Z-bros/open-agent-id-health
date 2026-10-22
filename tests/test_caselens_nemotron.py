@@ -267,6 +267,56 @@ class NvidiaTransportTests(unittest.TestCase):
                     {"role": "user", "content": "fake data"},
                 ])
 
+    def test_lightning_disables_thinking_for_bounded_json(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, max_size): return json.dumps({
+                "choices": [{"finish_reason": "stop",
+                             "message": {"content": sample_response()}}]
+            }).encode("utf-8")
+
+        client = NVIDIAChatClient(
+            api_key="FAKE-UNIT-TEST-KEY",
+            model="nvidia/nemotron-3.5-lightning-30b-a3b",
+            timeout_seconds=30,
+        )
+        with patch("urllib.request.urlopen", return_value=Response()) as urlopen:
+            self.assertEqual(client.complete([
+                {"role": "system", "content": "Explain synthetic evidence"},
+                {"role": "user", "content": "CASE-TB-018"},
+            ]), sample_response())
+        body = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(body["model"], "nvidia/nemotron-3.5-lightning-30b-a3b")
+        self.assertEqual(body["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("reasoning_effort", body)
+        self.assertEqual(body["max_tokens"], 1600)
+        self.assertEqual(body["stream"], False)
+
+    def test_incomplete_provider_response_reports_safe_finish_reason(self):
+        class Response:
+            def __init__(self, reason): self.reason = reason
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, max_size): return json.dumps({
+                "choices": [{"finish_reason": self.reason,
+                             "message": {"content": "INCOMPLETE SYNTHETIC TEXT"}}]
+            }).encode("utf-8")
+
+        client = NVIDIAChatClient(
+            api_key="FAKE-UNIT-TEST-KEY",
+            model="nvidia/nemotron-3.5-lightning-30b-a3b",
+        )
+        for reason in ("length", "content_filter", "tool_calls"):
+            with self.subTest(reason=reason):
+                with patch("urllib.request.urlopen", return_value=Response(reason)):
+                    with self.assertRaisesRegex(NemotronError, f"finish_reason={reason}") as ctx:
+                        client.complete([
+                            {"role": "system", "content": "rule"},
+                            {"role": "user", "content": "CASE-TB-018"},
+                        ])
+                    self.assertNotIn("INCOMPLETE SYNTHETIC TEXT", str(ctx.exception))
+
     def test_wrong_response_shape_fails_closed(self):
         class Response:
             def __enter__(self): return self
