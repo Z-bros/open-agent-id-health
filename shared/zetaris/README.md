@@ -1,7 +1,7 @@
 # Zetaris adapter — post-kickoff read-only evidence probe
 
 Status: **new code written during the official 22 Oct 2026 build window**. The
-read-only adapter and 11 offline unit tests are implemented; this is **not**
+read-only adapter and 12 offline unit tests are implemented; this is **not**
 yet verified against the participant's live local Zetaris platform or the
 separate 36-case TB-v1 dataset.
 
