@@ -113,6 +113,29 @@ Meterless credentials are sent. The output file is under .gitignored outputs/.
 If the model returns malformed or unsupported claims, CaseLens fails closed.
 Do not disable the evidence validator or silently substitute a mocked answer.
 
+### Nemotron 3.5 Lightning — bounded no-thinking mode
+
+The participant clarified that both the prior connection/timeout error and the
+subsequent `Provider did not return a complete text answer` error occurred with
+`nvidia/nemotron-3.5-lightning-30b-a3b` (not Ultra). As of this change,
+Lightning requests explicitly send `chat_template_kwargs: {enable_thinking:
+false}` with the existing `max_tokens: 1600` ceiling, following NVIDIA hosted
+Build examples. Otherwise, thinking tokens may consume the response budget
+before the strict JSON explanation is completed. No evidence proves that was
+the actual previous finish reason; the adapter now prints the bounded
+`finish_reason` category (`length`, `content_filter`, or `tool_calls`) without
+printing model output, provider error bodies, or secrets.
+
+    PYTHONPATH=src:. python3 -m apps.caselens \
+      --case-id CASE-TB-018 --namespace TBCARE_OS \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --output outputs/e04_case_tb_018.json
+
+The Lightning transport still has a default 75s timeout; the 180s timeout
+change only applies to Ultra. A valid full explanation_report is NOT yet
+confirmed. CaseLens continues to fail closed on incomplete or unsafe answers.
+
 ## Known limitations / pending
 
 - Lexical and citation checks are NOT complete factuality verification.
