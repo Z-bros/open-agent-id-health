@@ -1,6 +1,9 @@
 # TB-CareOS E06 — local human-review dashboard
 
 **Post-kickoff implementation (22 October 2026), stacked on E05.**
+**Participant-confirmed local dashboard run succeeded on 22 October 2026**
+for the fabricated CASE-TB-018 workflow. This is one-case local verification,
+not deployment, multi-case evaluation, or proof of an operational review service.
 The prebuild version was design notes only. E06 generates a self-contained
 local HTML report from the **fabricated** CareFlow, CaseLens and NextStep
 contracts. It is a **read-only review display**, not a server, clinical
