@@ -36,6 +36,15 @@ class QuerySafetyTests(unittest.TestCase):
                 validate_readonly_select(sql)
         self.assertEqual(validate_readonly_select("SELECT 1;"), "SELECT 1")
 
+    def test_rejects_unrelated_tables_and_unions(self):
+        for sql in (
+            "SELECT * FROM PRIVATE.real_patients",
+            "SELECT * FROM TB_TEAM.cases WHERE case_id = 'TB-001' LIMIT 5 UNION SELECT * FROM x",
+            "SELECT * FROM TB_TEAM.cases",
+        ):
+            with self.subTest(sql=sql), self.assertRaises(ValueError):
+                validate_readonly_select(sql)
+
     def test_limits(self):
         for limit in (0, 501):
             with self.assertRaises(ValueError):
