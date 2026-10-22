@@ -224,6 +224,49 @@ class NvidiaTransportTests(unittest.TestCase):
         self.assertEqual(payload["reasoning_effort"], "none")
         self.assertIs(payload["stream"], False)
 
+    def test_ultra_defaults_to_longer_timeout(self):
+        ultra = NVIDIAChatClient(
+            api_key="FAKE-UNIT-TEST-KEY",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
+        )
+        ordinary = NVIDIAChatClient(api_key="FAKE-UNIT-TEST-KEY")
+        self.assertEqual(ultra.timeout_seconds, 180)
+        self.assertEqual(ordinary.timeout_seconds, 75)
+        self.assertEqual(NVIDIAChatClient(
+            api_key="FAKE-UNIT-TEST-KEY",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
+            timeout_seconds=30,
+        ).timeout_seconds, 30)
+
+    def test_transport_timeout_error_is_distinct_and_redacted(self):
+        import urllib.error
+        client = NVIDIAChatClient(
+            api_key="SENSITIVE-FAKE-KEY",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
+        )
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(
+            TimeoutError("timed out")
+        )) as urlopen:
+            with self.assertRaisesRegex(NemotronError, "timed out.*180s") as ctx:
+                client.complete([
+                    {"role": "system", "content": "synthetic evidence only"},
+                    {"role": "user", "content": "CASE-TB-018"},
+                ])
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 180)
+        self.assertNotIn("SENSITIVE-FAKE-KEY", str(ctx.exception))
+
+    def test_transport_dns_error_is_distinct(self):
+        import urllib.error
+        client = NVIDIAChatClient(api_key="FAKE-UNIT-TEST-KEY")
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(
+            OSError("Name or service not known")
+        )):
+            with self.assertRaisesRegex(NemotronError, "network/DNS/TLS"):
+                client.complete([
+                    {"role": "system", "content": "rule"},
+                    {"role": "user", "content": "fake data"},
+                ])
+
     def test_wrong_response_shape_fails_closed(self):
         class Response:
             def __enter__(self): return self
