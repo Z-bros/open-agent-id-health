@@ -1,0 +1,59 @@
+name: E03 Meterless World Model Integration
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  meterless-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout TB-CareOS
+        uses: actions/checkout@v4
+      - name: Checkout pinned Meterless upstream
+        uses: actions/checkout@v4
+        with:
+          repository: Meterless/Meterless
+          ref: 1742dec56a66e58eef9dda2d2b865823758ca8cd
+          path: vendor_meterless
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Meterless reference dev dependencies
+        run: npm ci --prefix vendor_meterless/engines/world-model/reference
+      - name: Offline TB-CareOS regression tests
+        run: PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+      - name: Initial application-specific World Model ingestion
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --bundle-file tests/fixtures/tb_meterless_case_001.json \
+            --case-id CASE-TB-001 \
+            --reference vendor_meterless/engines/world-model/reference \
+            --state-dir local_data/meterless > /tmp/tb_e03_first.json
+      - name: Replay across a separate World Model process
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --bundle-file tests/fixtures/tb_meterless_case_001.json \
+            --case-id CASE-TB-001 \
+            --reference vendor_meterless/engines/world-model/reference \
+            --state-dir local_data/meterless > /tmp/tb_e03_repeat.json
+          python3 - <<'PY'
+          import json
+          first = json.load(open("/tmp/tb_e03_first.json"))
+          replay = json.load(open("/tmp/tb_e03_repeat.json"))
+          assert first["mapped_observations"] == 3
+          assert first["first_run"]["processed"] == 3
+          assert first["replay"]["events_appended"] == 0
+          assert replay["first_run"]["processed"] == 0
+          assert replay["first_run"]["events_appended"] == 0
+          assert first["persisted_projection_matches"]
+          assert replay["persisted_projection_matches"]
+          assert replay["replay"]["projection_unchanged"]
+          assert replay["event_count"] == first["event_count"]
+          print("PASS: app-specific Meterless ingest, replay, and cross-process persistence")
+          PY
