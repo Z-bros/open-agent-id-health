@@ -48,6 +48,8 @@ jobs:
           b=json.load(open("/tmp/meterless_second.json"))
           assert b["first_pass"]["processed"] == 0
           assert b["first_pass"]["events_appended"] == 0
+          assert b["first_pass"]["derived_projection_rebuilt_on_reload"] == b["first_pass"]["state_changed"]
+          assert a["first_pass"]["derived_projection_rebuilt_on_reload"] is False
           assert b["replay"]["state_unchanged"]
           assert b["durable_state"]["event_count"] == a["durable_state"]["event_count"]
           print("Restart persistence: zero duplicate events; audit history reloaded")
