@@ -76,6 +76,27 @@ its first pass should process 0 new observations, with no new canonical events.
 The World Model may still append separate **audit log entries** about the replay
 attempt itself; this is expected and not evidence duplication.
 
+### Important: derived projection rehydration on restart
+
+Verified by participant on 22 Oct 2026: after restarting the E03 command for
+CASE-TB-018, first pass processed=0, events_appended=0, observation_count=6,
+durable event_count=18, and the immediate replay was unchanged, while
+first_pass.state_changed=true. The audit count increased from 14 to 16.
+
+This is consistent with the **upstream Meterless reference** persisting its
+event log, observations and stories but rebuilding some entity aggregate
+fields during subsequent ingest. The store's event fold does not persist the
+post-ingest derived `entity.aggregates` projection directly; on reopening,
+re-ingestion of an unchanged batch may repopulate derived state. This is **not**
+a new evidence event. Our sidecar now explicitly flags this as
+`first_pass.derived_projection_rebuilt_on_reload=true` rather than treating
+it as proof that new source evidence was added.
+
+E03 event-store replay idempotency passed. Strict no-op canonical-state
+rehydration on cold startup **has not** been proven; address through upstream
+projection regeneration on load or a separately verified materialized snapshot
+before claiming byte-for-byte cold-start canonical state equivalence.
+
 For an offline fixture-only check (no Zetaris call):
 
     PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
