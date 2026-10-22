@@ -204,7 +204,7 @@ async function invokeAgent(kind) {
   setLoad(true);
   try{
     const result=await request("/api/cases/"+encodeURIComponent(caseId)+"/"+kind,
-      {method:"POST",headers:{"Content-Length":"0"}});
+      {method:"POST"});
     if(token!==state.generation)return;
     if(kind==="explain")renderExplanation(result);
     else renderPlan(result);
