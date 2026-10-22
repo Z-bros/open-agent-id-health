@@ -25,7 +25,7 @@ class NemotronError(RuntimeError):
 class NVIDIAChatClient:
     """Minimal OpenAI-compatible chat-completions client, no third-party deps.
 
-    Intentionally pinned to the documented NVIDIA host, with no redirects or
+    Intentionally pinned to the documented NVIDIA host, with no
     user-supplied URLs. The model ID is configurable; approval/credits are not
     implied by documented API availability.
     """
