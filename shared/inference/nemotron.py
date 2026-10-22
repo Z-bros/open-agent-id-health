@@ -16,6 +16,7 @@ from typing import Any
 NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 ULTRA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+LIGHTNING_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 _MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]{1,120}$")
 
 
@@ -67,6 +68,11 @@ class NVIDIAChatClient:
         # Do not assume other model variants support the same field.
         if self.model in (DEFAULT_MODEL, ULTRA_MODEL):
             payload["reasoning_effort"] = "none"
+        elif self.model == LIGHTNING_MODEL:
+            # NVIDIA Lightning supports chat-template thinking control. Without
+            # this, reasoning can consume the 1600-token bounded JSON budget.
+            # For direct HTTPS requests, extra_body SDK fields live at top level.
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
         req = urllib.request.Request(
             NVIDIA_CHAT_URL,
             data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
@@ -101,8 +107,13 @@ class NVIDIAChatClient:
         try:
             obj = json.loads(raw)
             choice = obj["choices"][0]
-            if choice.get("finish_reason") in ("length", "content_filter", "tool_calls"):
-                raise NemotronError("Provider did not return a complete text answer")
+            finish_reason = choice.get("finish_reason")
+            if finish_reason in ("length", "content_filter", "tool_calls"):
+                # Report only the documented termination category, never model
+                # text or potentially identifying provider response content.
+                raise NemotronError(
+                    f"Provider did not return a complete text answer (finish_reason={finish_reason})"
+                )
             text = choice["message"]["content"]
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("Empty model answer")
