@@ -28,6 +28,11 @@ has been exercised. Report it separately after local end-to-end verification.
 The re-ingest invariant is **no new source events and identical projection**;
 the World Model's own operation/audit log may legitimately record an
 additional ingestion attempt. Do not claim the audit log is byte-identical.
+On a fresh process reload, the pinned World Model reference replays stored
+source events but recomputes certain derived aggregates only after a no-op
+ingest pass. The bridge explicitly refreshes the derived projection without
+appending events, then tests equality. This is verified in the pinned
+GitHub Actions end-to-end integration workflow.
 
 ## Setup (WSL2 / Cursor)
 
