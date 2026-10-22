@@ -104,6 +104,11 @@ async function main(): Promise<void> {
       skipped_unchanged: first.skippedUnchanged,
       events_appended: first.eventsAppended,
       state_changed: before !== afterFirst,
+      // Meterless' reference saves append-only events, observations and
+      // stories, but not all rebuilt entity aggregates in its event log.
+      // A zero-write ingest after reopening can repopulate that projection.
+      derived_projection_rebuilt_on_reload:
+        first.processed === 0 && first.eventsAppended === 0 && before !== afterFirst,
     },
     replay: {
       processed: second.processed,
