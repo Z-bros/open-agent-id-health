@@ -1,5 +1,7 @@
 # TB-CareOS — Indonesian TB evidence investigation (monorepo)
 
+> **Build-window update (22 Oct 2026):** E01–E06 have been demonstrated on the fabricated CASE-TB-018 workflow, including hosted Nemotron 3.5 Lightning and a local read-only dashboard. E08 agent-report Meterless audit is under CI/participant verification. **The actual interactive application product is not built yet.** API, case explorer, review queue and audit UI are required before submission; see [product MVP roadmap](docs/product-mvp-roadmap.md). The prebuild disclosures below remain as a historical snapshot of work completed before kickoff.
+
 **Prebuild status, 21 October 2026:** repository structure and JSON contracts prepared before the official hackathon build window (22 Oct 00:00 UTC / 07:00 WIB). These are **not** three finished agents or submissions. [Pre-existing work disclosure](docs/prebuild-disclosure.md).
 
 TB-CareOS explores **administrative follow-up evidence discrepancies** for Indonesian Puskesmas TB coordinators, using **entirely fabricated** screening, laboratory and follow-up records. It does **not** connect to SITB/SATUSEHAT, diagnose, prescribe, contact patients, or assert that a missing digital record means missed care.

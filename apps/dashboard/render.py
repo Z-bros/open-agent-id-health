@@ -235,13 +235,26 @@ def _meterless(summary: dict[str, Any] | None, case_id: str) -> str:
     replay = summary["replay"].get("state_unchanged")
     if replay is not True:
         raise ValueError("Meterless sidecar replay not confirmed idempotent")
+    included = summary.get("input_artifact_types", ["careflow_evidence"])
+    accepted = {"careflow_evidence", "caselens_explanation", "nextstep_plan"}
+    if not isinstance(included, list) or not included or (
+        any(type(item) is not str or item not in accepted for item in included)
+    ) or len(set(included)) != len(included) or "careflow_evidence" not in included:
+        raise ValueError("Meterless summary contains unsupported artifact descriptions")
+    linked_reports = [name for name in included if name != "careflow_evidence"]
+    scope = (
+        "This E08 run also submitted validated " + ", ".join(linked_reports) +
+        " as auditable agent observations; the proposed NextStep checks remain unexecuted. "
+        if linked_reports else
+        "This E03 run archived CareFlow evidence and findings only; CaseLens and NextStep are not part of this summary. "
+    )
     return (
         '<div class="meter">' +
         "".join('<div class="stat"><span>' + _h(label) + '</span><b>' +
                 str(val) + "</b></div>" for label, val in values) +
         '</div><p class="small">Summary from a separate Meterless World Model run. '
-        'It currently covers CareFlow source evidence and findings—not CaseLens '
-        'explanations or NextStep plans. Event replay within that run was idempotent; '
+        + _h(scope, 540) +
+        'Event replay within that run was idempotent; '
         'cold-start derived projections may be rebuilt.</p>'
     )
 

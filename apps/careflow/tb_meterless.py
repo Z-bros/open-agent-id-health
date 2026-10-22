@@ -25,6 +25,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--helper", default=os.environ.get("TB_CAREOS_ZETARIS_QUERY_HELPER"),
                         help="Path to official zetaris getting-started query_zetaris.py")
     parser.add_argument("--bundle", type=Path, help="Read existing evidence_bundle.v1 JSON instead of Zetaris")
+    parser.add_argument("--explanation", type=Path,
+                        help="Optional saved E04 validated explanation_report.v1")
+    parser.add_argument("--plan", type=Path,
+                        help="Optional saved E05 validated verification_plan.v1")
     parser.add_argument("--reference", type=Path, required=True,
                         help="Path to checked-out Meterless/engines/world-model/reference")
     parser.add_argument("--state-dir", type=Path, default=Path("outputs/meterless"),
@@ -42,7 +46,15 @@ def main(argv: list[str] | None = None) -> int:
                                     namespace=args.namespace, case_id=args.case_id)
         if bundle.get("case_id") != args.case_id:
             raise ValueError("Requested case does not match evidence bundle")
-        observations = world_observations(bundle)
+        explanation = (json.loads(args.explanation.read_text(encoding="utf-8"))
+                       if args.explanation else None)
+        plan = (json.loads(args.plan.read_text(encoding="utf-8"))
+                if args.plan else None)
+        if (explanation is not None and not isinstance(explanation, dict)) or (
+            plan is not None and not isinstance(plan, dict)
+        ):
+            raise ValueError("E04/E05 artifact must be a JSON object")
+        observations = world_observations(bundle, explanation=explanation, plan=plan)
         if not 10 <= args.timeout <= 300:
             raise ValueError("Timeout must be 10–300 seconds")
         ref = args.reference.expanduser().resolve()
@@ -72,11 +84,16 @@ def main(argv: list[str] | None = None) -> int:
         report = json.loads(process.stdout)
         if report.get("case_id") != args.case_id or report.get("replay", {}).get("state_unchanged") is not True:
             raise RuntimeError("Invalid or non-idempotent Meterless report")
+        report["input_artifact_types"] = (
+            ["careflow_evidence"] +
+            (["caselens_explanation"] if explanation is not None else []) +
+            (["nextstep_plan"] if plan is not None else [])
+        )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
     except (OSError, ValueError, RuntimeError, ZetarisQueryError,
             json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
-        print(f"E03 error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"Meterless audit error: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
 
