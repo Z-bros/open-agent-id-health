@@ -268,6 +268,13 @@ def render_dashboard(
             _check_explanation(bundle, explanation)
         except NextStepValidationError as exc:
             raise ValueError("Invalid same-case CaseLens report: " + str(exc)) from exc
+        # The UI pairs a finding with the explanation at the same index.
+        # A valid set of IDs in the wrong order must not misattribute text.
+        for finding, hypothesis in zip(bundle["exceptions"], explanation["hypotheses"]):
+            if hypothesis["hypothesis"] != "Administrative review finding: " + finding["category"] or (
+                set(hypothesis["evidence_record_ids"]) != set(finding["evidence_record_ids"])
+            ):
+                raise ValueError("CaseLens explanation order does not match CareFlow findings")
     if plan is not None:
         try:
             validate_plan(bundle, plan)
