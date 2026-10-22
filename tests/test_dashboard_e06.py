@@ -151,6 +151,23 @@ class DashboardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_dashboard(b, meterless_summary=met)
 
+    def test_e08_meterless_summary_shows_only_supplied_agent_audit_types(self):
+        b = evidence()
+        e08 = meterless_summary()
+        e08["input_artifact_types"] = [
+            "careflow_evidence", "caselens_explanation", "nextstep_plan",
+        ]
+        rendered = render_dashboard(b, meterless_summary=e08)
+        self.assertIn("This E08 run also submitted validated", rendered)
+        self.assertIn("nextstep_plan", rendered)
+        self.assertIn("remain unexecuted", rendered)
+        old = render_dashboard(b, meterless_summary=meterless_summary())
+        self.assertIn("CareFlow evidence and findings only", old)
+        self.assertNotIn("This E08 run", old)
+        e08["input_artifact_types"].append("unknown_upload")
+        with self.assertRaises(ValueError):
+            render_dashboard(b, meterless_summary=e08)
+
     def test_cli_writes_self_contained_html_without_provider(self):
         with TemporaryDirectory() as tmp:
             out = Path(tmp) / "review.html"
