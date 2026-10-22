@@ -15,3 +15,6 @@ dist/
 outputs/
 logs/
 local_data/
+
+# Keep benchmark answer keys separate from agent-facing sources.
+**/ground_truth_holdout.csv
