@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>TB-CareOS · Administrative Review</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">✳</div><div><b>TB-CareOS</b><span>Evidence operations</span></div></div>
+    <div class="side-label">WORKSPACE</div>
+    <div class="nav-active"><span class="nav-glyph">▤</span> Case explorer <span class="mini-tag">MVP</span></div>
+    <div class="side-label side-label-second">SYNTHETIC CASES <span id="case-count" class="count">—</span></div>
+    <label for="case-search" class="sr-only">Search synthetic case ID</label>
+    <input id="case-search" type="search" placeholder="Search case ID…" autocomplete="off">
+    <div id="case-list" class="case-list" aria-label="Synthetic case list"><div class="loading-list">Loading case IDs…</div></div>
+    <div class="side-footer">
+      <div class="safe-icon">◎</div>
+      <b>Controlled demo</b>
+      <p>Fabricated administrative records only. No patient contact, clinical actions or registry writes.</p>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="crumbs">Workspace <span>›</span> Case explorer <span>›</span> <strong id="crumb-case">Select case</strong></div>
+      <div class="top-right"><span class="live-dot"></span><span id="source-mode">Checking source mode…</span><span class="divider-v"></span><span>Read-only</span></div>
+    </div>
+    <div class="content">
+      <div class="headline">
+        <div>
+          <div class="eyebrow">ADMINISTRATIVE EVIDENCE / CASE INVESTIGATION</div>
+          <h1 id="case-title">Select a synthetic case</h1>
+          <p id="case-subtitle">Choose a case on the left to retrieve evidence and inspect source discrepancies.</p>
+        </div>
+        <button id="refresh" type="button" class="button secondary" disabled>↻ &nbsp; Refresh evidence</button>
+      </div>
+      <div class="notice"><span>ⓘ</span><div><strong>Human-in-the-loop workspace.</strong> Every record is fabricated. Missing electronic documentation does not mean care was missed. AI outputs are evidence-bound suggestions and always require human review.</div></div>
+      <div id="error" class="error" role="alert" hidden></div>
+      <div id="content-empty" class="empty-cover"><div class="empty-emblem">⌕</div><h2>Investigation workspace</h2><p>Select a synthetic case to retrieve the latest available evidence through the bounded read-only connector.</p></div>
+      <div id="case-content" hidden>
+        <div class="metrics">
+          <div class="metric"><div class="metric-label">Evidence records</div><div id="stat-evidence" class="metric-value">—</div><div class="metric-foot">Source-linked records</div></div>
+          <div class="metric"><div class="metric-label">Source checks</div><div id="stat-checks" class="metric-value">—</div><div class="metric-foot">Query outcomes</div></div>
+          <div class="metric"><div class="metric-label">Administrative findings</div><div id="stat-findings" class="metric-value">—</div><div class="metric-foot">Requires verification</div></div>
+          <div class="metric"><div class="metric-label">Review status</div><div class="metric-value small-value">Pending</div><div class="metric-foot">No autonomous approval</div></div>
+        </div>
+        <div class="two-col">
+          <section class="card" id="findings-card"><div class="card-head"><div><h2>CareFlow findings</h2><p>Deterministic discrepancies with traceable evidence</p></div><span class="chip warn">Human review</span></div><div id="findings" class="section-body"></div></section>
+          <section class="card"><div class="card-head"><div><h2>Source availability</h2><p>Observed read status; not a completeness guarantee</p></div><span class="chip">Zetaris</span></div><div id="sources" class="section-body"></div></section>
+        </div>
+        <section class="card agent-card"><div class="card-head"><div><h2>Agent investigation</h2><p>Invoke bounded inference explicitly; no automatic actions</p></div><span class="chip">NVIDIA Nemotron</span></div>
+          <div class="agent-grid">
+            <div class="agent"><div class="agent-top"><span class="agent-icon">◇</span><div><b>CaseLens</b><span>Evidence-grounded explanation</span></div></div><button id="explain" class="button primary">Generate explanation →</button><div id="explain-status" class="agent-status">Not requested</div><div id="explanation" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon">⇢</span><div><b>NextStep</b><span>Bounded verification proposals</span></div></div><button id="plan" class="button primary">Generate verification plan →</button><div id="plan-status" class="agent-status">Not requested</div><div id="plan-result" class="agent-result"></div></div>
+          </div>
+          <p class="agent-disclaimer">Agent generation can call the NVIDIA hosted model. Plans are proposals only: this application does not execute suggested checks or contact anyone.</p>
+        </section>
+        <section class="card"><div class="card-head"><div><h2>Evidence timeline</h2><p>Retrieved administrative events with business IDs, provenance and synthetic subject refs</p></div><span id="timeline-count" class="chip">0 events</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Observed (UTC)</th><th>Evidence source</th><th>Business ID</th><th>Source record</th><th>Synthetic subject</th></tr></thead><tbody id="timeline"></tbody></table></div>
+        </section>
+        <section class="card footer-card"><div class="card-head"><div><h2>Review decisions &amp; audit history</h2><p>Planned product phase B</p></div><span class="chip muted">Not implemented</span></div><p>Backend Meterless audit persistence is verified. The interactive event browser and explicitly authorized local reviewer notes will be connected in the next product iteration; no review is submitted by this screen.</p></section>
+      </div>
+      <footer>TB-CareOS · Open Agent Hackathon 2026 · Synthetic administrative evidence · Not a clinical decision system</footer>
+    </div>
+  </main>
+</div>
+</body>
+</html>
