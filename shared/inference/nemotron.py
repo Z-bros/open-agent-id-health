@@ -15,6 +15,7 @@ from typing import Any
 
 NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+ULTRA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 _MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]{1,120}$")
 
 
@@ -56,9 +57,11 @@ class NVIDIAChatClient:
             "temperature": 0.2,
             "stream": False,
         }
-        # The current NVIDIA Nemotron 3 Super API documents reasoning_effort;
-        # other models are allowed without assuming that optional field exists.
-        if self.model == DEFAULT_MODEL:
+        # NVIDIA documents reasoning_effort=none for both Nemotron 3 Super and
+        # Ultra. The latter otherwise defaults to high reasoning, which may
+        # exhaust the bounded output budget before returning strict JSON.
+        # Do not assume other model variants support the same field.
+        if self.model in (DEFAULT_MODEL, ULTRA_MODEL):
             payload["reasoning_effort"] = "none"
         req = urllib.request.Request(
             NVIDIA_CHAT_URL,
