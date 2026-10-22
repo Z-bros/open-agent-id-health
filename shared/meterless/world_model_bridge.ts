@@ -66,7 +66,13 @@ async function main(): Promise<void> {
   const replayShape = world.stateShapeCanonical();
   const replayEvents = world.events().length;
   const reloaded = new WorldModel({ namespace, storage: "local", directory: stateDir });
-  const persisted = reloaded.stateShapeCanonical() === replayShape;
+  // Upstream's local reference replays event/observation storage on load, but
+  // certain derived entity aggregates are rebuilt by the ingest pipeline.
+  // Rehydrate these read projections without appending any source events.
+  const refresh = await reloaded.ingest(observations);
+  const persisted = reloaded.stateShapeCanonical() === replayShape
+    && refresh.processed === 0 && refresh.eventsAppended === 0
+    && reloaded.events().length === replayEvents;
   const unchanged = replayShape === firstShape && firstEvents === replayEvents;
   const timeline = reloaded.view("timeline").get();
   const report = {
@@ -88,6 +94,7 @@ async function main(): Promise<void> {
     },
     event_count: replayEvents,
     persisted_projection_matches: persisted,
+    rehydrate_without_new_events: refresh.eventsAppended === 0 && refresh.processed === 0,
     timeline_sample: timeline.slice(-8).map((e: any) => ({
       id: e.id, kind: e.kind, at: e.at,
     })),
