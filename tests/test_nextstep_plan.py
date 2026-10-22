@@ -149,6 +149,10 @@ class NextStepTests(unittest.TestCase):
         altered["actions"].pop()
         with self.assertRaises(NextStepValidationError):
             validate_plan(b, altered)
+        altered = copy.deepcopy(p)
+        altered["actions"][0] = None
+        with self.assertRaises(NextStepValidationError):
+            validate_plan(b, altered)
 
     def test_explanation_cannot_add_findings_or_new_citations(self):
         b = fixture()
