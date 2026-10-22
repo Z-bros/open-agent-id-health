@@ -25,7 +25,7 @@ def demo_server(service):
             thread.join(timeout=3)
 
 
-def http(port, method, path, body=None, headers=None):
+def make_request(port, method, path, body=None, headers=None):
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
     connection.request(method, path, body=body, headers=headers or {})
     response = connection.getresponse()
@@ -63,33 +63,33 @@ class ProductTests(unittest.TestCase):
         with demo_server(service) as port:
             for route in STATIC:
                 with self.subTest(route=route):
-                    status, headers, body = http(port, "GET", route)
+                    status, headers, body = make_request(port, "GET", route)
                     self.assertEqual(status, 200)
                     self.assertIn(b"TB-CareOS" if route == "/" else b"", body)
                     self.assertIn("default-src 'self'", headers.get("Content-Security-Policy", ""))
-            status, _, body = http(port, "GET", "/api/cases")
+            status, _, body = make_request(port, "GET", "/api/cases")
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body)["cases"][0]["case_id"], "CASE-TB-018")
-            status, _, body = http(port, "GET", "/api/cases/CASE-TB-018/evidence")
+            status, _, body = make_request(port, "GET", "/api/cases/CASE-TB-018/evidence")
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body)["observations"][2]["record_id"], "RES-TB-018")
-            status, _, body = http(port, "GET", "/api/not-a-route")
+            status, _, body = make_request(port, "GET", "/api/not-a-route")
             self.assertEqual(status, 404)
 
     def test_http_disallows_cross_origin_or_mutations(self):
         service = ProductService(helper=None, fixture=FIXTURE)
         with demo_server(service) as port:
-            status, _, _ = http(port, "POST", "/api/cases/CASE-TB-018/explain",
+            status, _, _ = make_request(port, "POST", "/api/cases/CASE-TB-018/explain",
                                  headers={"Origin": "https://evil.example"})
             self.assertEqual(status, 403)
-            status, _, _ = http(port, "POST", "/api/cases/CASE-TB-018/plan",
+            status, _, _ = make_request(port, "POST", "/api/cases/CASE-TB-018/plan",
                                  body='{"sql":"DELETE ALL"}',
                                  headers={"Content-Type": "application/json"})
             self.assertEqual(status, 400)
             for method in ("PUT", "PATCH", "DELETE"):
-                status, _, _ = http(port, method, "/api/cases/CASE-TB-018/evidence")
+                status, _, _ = make_request(port, method, "/api/cases/CASE-TB-018/evidence")
                 self.assertEqual(status, 405)
-            status, _, body = http(port, "POST", "/api/cases/CASE-TB-999/plan")
+            status, _, body = make_request(port, "POST", "/api/cases/CASE-TB-999/plan")
             self.assertEqual(status, 400)
             self.assertIn(b"synthetic", body)
 
@@ -100,10 +100,10 @@ class ProductTests(unittest.TestCase):
         with patch.object(service, "explain", return_value=sample_exp) as exp, \
              patch.object(service, "plan", return_value=sample_plan) as plan:
             with demo_server(service) as port:
-                status, _, body = http(port, "POST", "/api/cases/CASE-TB-018/explain")
+                status, _, body = make_request(port, "POST", "/api/cases/CASE-TB-018/explain")
                 self.assertEqual(status, 200)
                 self.assertEqual(json.loads(body), sample_exp)
-                status, _, body = http(port, "POST", "/api/cases/CASE-TB-018/plan")
+                status, _, body = make_request(port, "POST", "/api/cases/CASE-TB-018/plan")
                 self.assertEqual(status, 200)
                 self.assertEqual(json.loads(body), sample_plan)
         exp.assert_called_once_with("CASE-TB-018")
@@ -114,7 +114,7 @@ class ProductTests(unittest.TestCase):
         with patch.object(service, "explain", side_effect=RuntimeError(
             "provider error contains secret credential sk-live-SENSITIVE")):
             with demo_server(service) as port:
-                status, _, body = http(port, "POST", "/api/cases/CASE-TB-018/explain")
+                status, _, body = make_request(port, "POST", "/api/cases/CASE-TB-018/explain")
                 self.assertEqual(status, 422)
                 self.assertIn(b"request failed", body)
                 self.assertNotIn(b"sk-live-SENSITIVE", body)
