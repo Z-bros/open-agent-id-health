@@ -93,6 +93,13 @@ hosted; no local 550B model download is required.
 If Ultra returns invalid JSON or incomplete citations, CaseLens fails closed;
 retain the error and diagnose model conformance rather than disabling checks.
 
+**Transport troubleshooting:** Ultra non-streaming calls now use a 180-second
+configured timeout (other models retain 75 seconds); the adapter separately
+reports timeouts versus DNS/network failures, without logging provider secrets.
+If it times out again, measure duration using `time` in WSL2 and check the
+provider status independently. A timeout is not proof that authorization or
+inference succeeded. Do not repeatedly re-submit without checking quota.
+
 Or test with a saved **synthetic** E02 bundle (no Zetaris required):
 
     PYTHONPATH=src:. python3 -m apps.caselens \
