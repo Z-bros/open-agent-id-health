@@ -11,6 +11,12 @@ import re
 from datetime import datetime
 from typing import Any
 
+from apps.caselens.explain import (
+    _context as _explanation_context,
+    _is_safe_string, _verify_refs, _UNRESOLVED,
+)
+from apps.nextstep.plan import _check_explanation, validate_plan
+
 _CASE = re.compile(r"^CASE-TB-[0-9]{3,}$")
 _MAX_OBSERVATIONS = 500
 _MAX_EXCEPTIONS = 100
@@ -32,11 +38,17 @@ def _timestamp(value: Any) -> str:
     return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def world_observations(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-    """Normalize vetted CareFlow observations and exceptions for Meterless ingestion.
+def world_observations(
+    bundle: dict[str, Any], *,
+    explanation: dict[str, Any] | None = None,
+    plan: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Normalize source evidence and optional validated agent reports.
 
-    Idempotency keys use source_row provenance; exception keys use category and
-    cited business IDs, while text captures updates under the same key.
+    Stable external IDs prevent append-only replay duplication. If a report
+    changes, the identical external ID receives revised text as an auditable
+    update. Synthetic source evidence time anchors snapshots; it is NOT the
+    original wall-clock time when the agent generated a report.
     """
     if not isinstance(bundle, dict) or bundle.get("schema_version") != "1.0.0":
         raise ValueError("Expected evidence_bundle.v1 / schema_version 1.0.0")
@@ -127,5 +139,87 @@ def world_observations(bundle: dict[str, Any]) -> list[dict[str, Any]]:
             "entities": [{"type": "tb_synthetic_case", "name": case_id}],
         })
 
+    if explanation is not None or plan is not None:
+        # The E04/E05 contracts must be verified against the same evidence.
+        # Never archive arbitrary text, cross-case claims, or a model-generated
+        # source identifier as an audit fact.
+        evidence, _, allowed_records, allowed_subjects = _explanation_context(bundle)
+        if explanation is not None:
+            _check_explanation(bundle, explanation)
+            if len(explanation["unresolved_questions"]) > 25:
+                raise ValueError("Too many CaseLens review questions")
+            for i, (hyp, issue) in enumerate(zip(
+                explanation["hypotheses"], findings
+            )):
+                expected = "unresolved" if issue["category"] in _UNRESOLVED else "supported"
+                if hyp["hypothesis"] != "Administrative review finding: " + issue["category"] or (
+                    hyp["assessment"] != expected
+                ):
+                    raise ValueError("CaseLens report changes a CareFlow finding")
+                reason = hyp["reason"]
+                if not _is_safe_string(reason, 45, 700):
+                    raise ValueError("CaseLens reason has unsafe content/length")
+                _verify_refs(
+                    reason, allowed_records=allowed_records,
+                    allowed_subjects=allowed_subjects,
+                )
+                if any(ref not in reason for ref in issue["evidence_record_ids"]):
+                    raise ValueError("CaseLens reason omits required evidence citation")
+                if issue["category"] == "subject_mismatch":
+                    subjects = {
+                        obs["subject_ref"] for obs in evidence
+                        if obs["record_id"] in issue["evidence_record_ids"]
+                    }
+                    if len(subjects) < 2 or any(sub not in reason for sub in subjects):
+                        raise ValueError("CaseLens reason omits conflicting subjects")
+            for question in explanation["unresolved_questions"]:
+                if not _is_safe_string(question, 15, 220) or not question.endswith("?"):
+                    raise ValueError("CaseLens unresolved question unsafe or malformed")
+                _verify_refs(
+                    question, allowed_records=allowed_records,
+                    allowed_subjects=allowed_subjects,
+                )
+
+            converted.append({
+                "externalId": f"tb-careos:{case_id}:caselens:explanation-report:v1",
+                "type": "tb_caselens_explanation",
+                "title": f"Validated CaseLens explanation / {case_id}",
+                "text": canonical_json({
+                    "artifact_type": "explanation_report.v1",
+                    "evidence_snapshot_at": default_at,
+                    "report": explanation,
+                }),
+                "at": default_at,
+                "source": {
+                    "kind": "agent",
+                    "by": "TB-CaseLens/validated-report",
+                    "at": default_at,
+                },
+                "entities": [{"type": "tb_synthetic_case", "name": case_id}],
+            })
+        if plan is not None:
+            validate_plan(bundle, plan)
+            # The v1 plan is a proposal and not evidence of completed actions.
+            # Reference the same evidence snapshot to permit clean replay.
+            converted.append({
+                "externalId": f"tb-careos:{case_id}:nextstep:verification-plan:v1",
+                "type": "tb_nextstep_plan",
+                "title": f"Proposed NextStep verification / {case_id}",
+                "text": canonical_json({
+                    "artifact_type": "verification_plan.v1",
+                    "evidence_snapshot_at": default_at,
+                    "execution_status": "not_executed",
+                    "plan": plan,
+                }),
+                "at": default_at,
+                "source": {
+                    "kind": "agent",
+                    "by": "TB-NextStep/validated-proposal",
+                    "at": default_at,
+                },
+                "entities": [{"type": "tb_synthetic_case", "name": case_id}],
+            })
+    if len(converted) > 600:
+        raise ValueError("World Model input exceeds bounded sidecar limit")
     # Stable order makes replays canonical across source retrieval ordering.
     return sorted(converted, key=lambda item: item["externalId"])
