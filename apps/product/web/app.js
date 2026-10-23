@@ -167,6 +167,11 @@ function renderJourney() {
     if(control.dataset.journeyTarget==="review-panel")active=wf.reviewCount>0;
     if(control.dataset.journeyTarget==="meterless-audit")active=wf.audit==="available";
     control.classList.toggle("is-done",active);
+    const needsReview=!noFindings && hasEvidence && (
+      (control.dataset.journeyTarget==="agent-investigation" && (explanationReady||planReady)) ||
+      (control.dataset.journeyTarget==="review-panel" && wf.reviewCount>0)
+    );
+    control.classList.toggle("needs-review",needsReview);
   });
 }
 function resetWorkflow(){
