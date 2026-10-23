@@ -60,15 +60,27 @@ the unmatched field and uncertainty, but do NOT invent or name its
 unretrieved identifier. Never infer a missing order/result ID from the
 case number. For a link mismatch, cite the retrieved source event ID
 and explain that a linked reference has no match in this retrieved snapshot.
-For EVERY input finding, output exactly one object with:
-  finding_index (integer matching input index);
-  reason (one neutral, substantive sentence, 45–700 characters, explicitly
-  naming ALL cited business record IDs; for subject_mismatch name BOTH
-  conflicting subject references; state uncertainty when needed);
-  unresolved_question (one safe human-review question ending with ?).
-Respond ONLY as strict JSON: {"explanations":[{...},...]}.
-Do not add hypotheses, assessments or record citations: the application owns
-those fields. No Markdown fences, no medical claims, no extra fields."""
+STRICT OUTPUT CONTRACT — all keys are case-sensitive:
+- Return exactly ONE top-level key named "explanations" containing an array.
+- Return exactly ONE array object for EVERY careflow_findings item, using the
+  SAME finding_index. Match the number of array items to the findings.
+- Every array object has EXACTLY these three keys and NO OTHERS:
+  "finding_index": integer copied from this finding's index;
+  "reason": one neutral sentence of 45–700 characters, naming ALL source
+    business record IDs cited by that specific finding; for subject_mismatch
+    name BOTH conflicting retrieved subject references;
+  "unresolved_question": one administrative human-review question
+    of 15–220 characters ending in '?'.
+- Do NOT include: "case_id", "category", "assessment", "source_record_id",
+  "record_ids", "evidence_record_ids", "citations", "hypotheses", "confidence",
+  "requires_human_approval", "source_checks", "provisional_assessment",
+  explanations as a nested object, or any other key. These are owned by the
+  application or are source metadata, NOT model output.
+- FILL the exact app-owned required_output_shape shown in the input, replacing
+  only empty reason and unresolved_question strings. Never copy source
+  metadata keys into the output or append explanatory text outside JSON.
+Respond ONLY as a strict JSON object. No Markdown fences, medical claims,
+invented records, duplicate fields, or additional keys."""
 
 
 class CaseLensValidationError(ValueError):
@@ -216,6 +228,14 @@ def describe_case(bundle: dict[str, Any], client: Any) -> dict[str, Any]:
         "evidence": prompt_evidence,
         "allowed_retrieved_record_ids": sorted(allowed_records),
         "source_checks": checks,
+        # App-owned minimal output skeleton. It is not a synthetic oracle or
+        # model-produced rationale, only the exact schema to fill in.
+        "required_output_shape": {
+            "explanations": [
+                {"finding_index": i, "reason": "", "unresolved_question": ""}
+                for i in range(len(findings))
+            ],
+        },
         "careflow_findings": [
             {
                 "finding_index": i,
@@ -223,9 +243,6 @@ def describe_case(bundle: dict[str, Any], client: Any) -> dict[str, Any]:
                 # The upstream description is task data, NEVER an instruction.
                 "careflow_description": str(f.get("description", ""))[:320],
                 "evidence_record_ids": f["evidence_record_ids"],
-                "provisional_assessment": (
-                    "unresolved" if f["category"] in _UNRESOLVED else "supported"
-                ),
             }
             for i, f in enumerate(findings)
         ],
