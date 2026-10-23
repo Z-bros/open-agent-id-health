@@ -38,6 +38,29 @@ MAX_PROVIDER_CALLS = 30
 ERROR_HTTP = re.compile(r"NVIDIA API HTTP (\d{3})")
 
 
+# Exact messages authored by our own validators, never raw model text.
+CASELENS_RULES = {
+    "Nemotron did not return strict JSON": "caselens_invalid_json",
+    "Nemotron returned an invalid top-level structure": "caselens_structure",
+    "Nemotron must address every CareFlow finding exactly once": "caselens_finding_coverage",
+    "Model fields not allowlisted": "caselens_fields",
+    "Model finding index invalid/duplicate": "caselens_index",
+    "Model reason unsafe or out of bounds": "caselens_reason_safety_or_length",
+    "Model review question unsafe or missing question mark": "caselens_question_format",
+    "Nemotron cited a non-retrieved event or source record": "caselens_unretrieved_citation",
+    "Nemotron introduced an unknown subject identifier": "caselens_unknown_subject",
+    "Explanation contains an unsupported external reference": "caselens_external_reference",
+    "Model reason omitted mandatory source business ID": "caselens_missing_business_citation",
+    "Subject mismatch reason lacks both conflicting subjects": "caselens_missing_subject_refs"
+}
+NEXTSTEP_RULES = {
+    "Nemotron selection was not strict JSON": "nextstep_invalid_json",
+    "Nemotron tried to output unsupported plan fields": "nextstep_fields",
+    "Nemotron query selection violates bounds": "nextstep_selection_bounds",
+    "Nemotron selected a non-allowlisted query": "nextstep_non_allowlisted_query"
+}
+
+
 class CountingClient:
     def __init__(self, delegate: Any):
         self.delegate = delegate
@@ -62,8 +85,10 @@ def _error_category(exc: Exception) -> str:
         if "connection failed" in message:
             return "provider_connection_error"
         return "provider_incomplete_or_other"
-    if isinstance(exc, (CaseLensValidationError, NextStepValidationError)):
-        return "grounding_or_contract_rejection"
+    if isinstance(exc, CaseLensValidationError):
+        return CASELENS_RULES.get(str(exc), "caselens_other_contract_rejection")
+    if isinstance(exc, NextStepValidationError):
+        return NEXTSTEP_RULES.get(str(exc), "nextstep_other_contract_rejection")
     return "unexpected_" + type(exc).__name__
 
 
@@ -177,6 +202,13 @@ def evaluate_live(
             })
         rows.append(result)
 
+    # Report linked success, not just independent successful agent calls.
+    eligible_chains = [t for c in rows if c.get("findings") for t in c["trials"]]
+    linked_chains = sum(
+        t["caselens"]["status"] == "accepted_provider" and
+        t["nextstep"]["status"] in ("accepted_provider", "no_provider_needed")
+        for t in eligible_chains
+    )
     calls = 0
     successes = 0
     failures = 0
@@ -216,6 +248,8 @@ def evaluate_live(
         "repeats_per_case": repeats,
         "model_calls": calls,
         "provider_accepted": successes,
+        "full_chain_eligible_trials": len(eligible_chains),
+        "full_chain_accepted": linked_chains,
         "no_provider_needed": no_need,
         "rejected_or_failed": failures,
         "agents": by_agent,
@@ -266,7 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     summary = {key: report[key] for key in (
         "cases_requested", "cases_with_verified_sources",
         "cases_without_verified_sources", "repeats_per_case",
-        "model_calls", "provider_accepted", "no_provider_needed",
+        "model_calls", "provider_accepted", "full_chain_eligible_trials",
+        "full_chain_accepted", "no_provider_needed",
         "rejected_or_failed", "agents",
     )}
     print(json.dumps(summary, indent=2))
