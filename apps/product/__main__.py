@@ -62,7 +62,7 @@ class ProductService:
                  review_dir: str | Path = "outputs/reviews",
                  meterless_reference: str | Path | None = None,
                  meterless_state_dir: str | Path = "outputs/meterless",
-                 activity_dir: str | Path = "outputs/activities"):
+                 activity_dir: str | Path | None = None):
         if fixture is None and not helper:
             raise ValueError("Provide --helper or --fixture")
         if fixture is not None and helper:
@@ -72,6 +72,11 @@ class ProductService:
         self.namespace = namespace
         self.model = model
         self.reviews_store = ReviewStore(review_dir)
+        if activity_dir is None:
+            local_reviews = Path(review_dir)
+            activity_dir = (local_reviews.parent / "activities"
+                            if local_reviews.name == "reviews"
+                            else local_reviews / "_activity")
         self.activities = ActivityStore(activity_dir)
         self.audit_reader = MeterlessAuditReader(
             meterless_reference or Path.home() / "Meterless/engines/world-model/reference",
@@ -310,8 +315,9 @@ def make_handler(service: ProductService):
             """Record only actually reached server-side steps, no raw content."""
             run_id = str(uuid.uuid4())
             service.activities.append(case_id, operation, "requested", run_id=run_id)
-            def progress(state):
-                service.activities.append(case_id, operation, state, run_id=run_id)
+            def progress(state, error_code=None):
+                service.activities.append(case_id, operation, state, run_id=run_id,
+                                          error_code=error_code)
             try:
                 result = action(progress)
                 progress("accepted")
@@ -323,9 +329,8 @@ def make_handler(service: ProductService):
                 state = ("stale_evidence" if isinstance(exc, EvidenceSnapshotChanged) else
                          "rejected" if isinstance(exc, (CaseLensValidationError, NextStepValidationError)) else
                          "failed")
-                progress(state if state in ("rejected", "failed", "stale_evidence") else "failed")
-                # Ensure failure code is safely sourced from local mappings.
-                # Failures stay visible in HTTP responses, never silent success.
+                progress(state, error_code=code)
+                # Failures stay visible; raw provider text is not persisted.
                 raise
 
         def _trusted_host(self) -> bool:
@@ -502,7 +507,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="Local upstream Meterless World Model reference checkout")
     parser.add_argument("--meterless-state-dir", type=Path, default=Path("outputs/meterless"),
                         help="Local previously ingested Meterless state; audit GET never ingests")
-    parser.add_argument("--activity-dir", type=Path, default=Path("outputs/activities"),
+    parser.add_argument("--activity-dir", type=Path, default=None,
                         help="Local-only server-observed activity history, separate from Meterless")
     parser.add_argument("--model", default=os.getenv("NEMOTRON_MODEL", MODEL))
     args = parser.parse_args(argv)
