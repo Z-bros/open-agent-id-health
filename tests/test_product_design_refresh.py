@@ -81,7 +81,7 @@ class DesignRefreshContractTests(unittest.TestCase):
         ):
             self.assertEqual(dom.ids.count(item),1,item)
         self.assertIn("<b>TBCare</b>",html)
-        self.assertIn("Administrative evidence review",html)
+        self.assertIn("TB RECORD RECONCILIATION / CASE REVIEW",html)
         self.assertNotIn("Kemenkes",html)
         self.assertNotIn("SATUSEHAT logo",html)
         self.assertIn("Synthetic records",html)
