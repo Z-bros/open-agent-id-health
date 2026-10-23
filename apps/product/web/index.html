@@ -60,6 +60,18 @@
           <button type="button" class="journey-step" data-journey-target="meterless-audit" disabled><span class="journey-index">4</span><span class="journey-copy"><strong>Inspect audit</strong><small id="step-audit">Not checked</small></span></button>
         </div>
       </nav>
+      <section id="activity-center" class="activity-center" aria-labelledby="activity-title">
+        <div class="activity-heading">
+          <div><span class="demo-kicker">AGENT OBSERVABILITY</span><h2 id="activity-title">Live activity &amp; review attention</h2>
+            <p>Server-recorded checkpoints, not the model's private thinking. In-app updates while this browser page is open only.</p>
+          </div>
+          <div class="activity-controls"><span id="activity-unread" class="activity-unread">0 new</span><button id="activity-mark-seen" type="button" class="button secondary">Mark noticed</button></div>
+        </div>
+        <p id="activity-status" class="activity-status" role="status">Select a synthetic case to view observed activity.</p>
+        <div id="activity-feed" class="activity-feed" aria-label="Recent server-recorded application activity"></div>
+        <p id="activity-toast" class="sr-only" role="status" aria-live="polite"></p>
+        <p class="activity-disclosure">This is a local application activity log, separate from persisted Meterless World Model events and from reviewer-note history. No notification delivery occurs when the page or local server is closed. No actions are automatically executed.</p>
+      </section>
       <div id="error" class="error" role="alert" hidden></div>
       <div id="content-empty" class="empty-cover"><div class="empty-emblem">⌕</div><h2>Investigation workspace</h2><p>Select a synthetic case to retrieve the latest available evidence through the bounded read-only connector.</p></div>
       <div id="case-content" hidden>
