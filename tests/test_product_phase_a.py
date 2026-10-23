@@ -8,7 +8,9 @@ import unittest
 from unittest.mock import patch
 
 from http.server import ThreadingHTTPServer
-from apps.product.__main__ import CASE_IDS, ProductService, make_handler, STATIC
+from apps.product.__main__ import CASE_IDS, ProductService, make_handler, STATIC, public_failure
+from apps.caselens.explain import CaseLensValidationError
+from shared.inference.nemotron import NemotronError
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures/tb_case_018_bundle.json"
 
@@ -109,14 +111,55 @@ class ProductTests(unittest.TestCase):
         exp.assert_called_once_with("CASE-TB-018")
         plan.assert_called_once_with("CASE-TB-018")
 
+    def test_missing_server_nvidia_key_reports_actionable_safe_error(self):
+        service = ProductService(helper=None, fixture=FIXTURE)
+        with patch.object(service, "explain", side_effect=NemotronError(
+            "NVIDIA_API_KEY not set; create a key in NVIDIA Build and load it privately"
+        )):
+            with demo_server(service) as port:
+                status, _, body = make_request(
+                    port, "POST", "/api/cases/CASE-TB-012/explain"
+                )
+                self.assertEqual(status, 400)  # not in one-case fixture, API must not guess
+                status, _, body = make_request(
+                    port, "POST", "/api/cases/CASE-TB-018/explain"
+                )
+                self.assertEqual(status, 503)
+                payload = json.loads(body)
+                self.assertEqual(payload["error_code"], "nvidia_key_missing")
+                self.assertIn("server process", payload["error"])
+                self.assertIn("WSL", payload["next_step"])
+
+    def test_provider_and_grounding_errors_are_distinct_without_raw_text(self):
+        scenarios = [
+            (NemotronError("NVIDIA API HTTP 403; private token 9876"),
+             "nvidia_access_denied", 503),
+            (NemotronError("NVIDIA API HTTP 404; private token 9876"),
+             "nvidia_model_unavailable", 503),
+            (NemotronError("NVIDIA API HTTP 429; private token 9876"),
+             "nvidia_rate_limited", 503),
+            (NemotronError("NVIDIA request timed out (configured timeout 75s)"),
+             "nvidia_timeout", 503),
+            (CaseLensValidationError("Unsafe hallucination: sk-live-SENSITIVE"),
+             "agent_validation_rejected", 422),
+        ]
+        for exception, category, expected_status in scenarios:
+            with self.subTest(category=category):
+                status, code, message, guidance = public_failure(exception)
+                self.assertEqual(status, expected_status)
+                self.assertEqual(code, category)
+                self.assertTrue(message and guidance)
+                self.assertNotIn("9876", message + guidance)
+                self.assertNotIn("sk-live-SENSITIVE", message + guidance)
+
     def test_external_model_error_never_leaks_provider_payload(self):
         service = ProductService(helper=None, fixture=FIXTURE)
         with patch.object(service, "explain", side_effect=RuntimeError(
             "provider error contains secret credential sk-live-SENSITIVE")):
             with demo_server(service) as port:
                 status, _, body = make_request(port, "POST", "/api/cases/CASE-TB-018/explain")
-                self.assertEqual(status, 422)
-                self.assertIn(b"request failed", body)
+                self.assertEqual(status, 500)
+                self.assertIn(b"unexpected_internal_error", body)
                 self.assertNotIn(b"sk-live-SENSITIVE", body)
 
 
