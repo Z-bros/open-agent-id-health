@@ -307,6 +307,16 @@ or changing the CaseLens/NextStep model validators.
   sections, and live status messages; responsive mobile layouts are
   improved. Source text still renders only through textContent.
 
+**Snapshot protection:** The browser sends the server-generated
+SHA256 evidence snapshot identifier on each explicit CaseLens/NextStep
+request. The server independently re-queries evidence and compares
+hashes **before** invoking Nemotron. A mismatch returns HTTP 409
+`evidence_snapshot_changed` and asks the participant to
+refresh evidence. Existing displayed agent outputs are invalidated and
+the old case's session badge is marked stale. This avoids presenting
+AI results from a newly queried source beside an outdated evidence
+timeline. The review-note POST already has its own evidence hash check.
+
 **Important:** This does not implement user authentication, official
 administrative approvals, a human escalation delivery, an integration
 between local review notes and Meterless, or model fallback/retry that
