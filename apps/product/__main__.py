@@ -93,7 +93,9 @@ class ProductService:
 
     def explain(self, case_id: str, expected_snapshot: str | None = None) -> dict:
         evidence = self._agent_evidence(case_id, expected_snapshot)
-        return describe_case(evidence, NVIDIAChatClient(model=self.model))
+        return describe_case(
+            evidence, NVIDIAChatClient(model=self.model, json_output=True)
+        )
 
     def plan(self, case_id: str, expected_snapshot: str | None = None) -> dict:
         evidence = self._agent_evidence(case_id, expected_snapshot)
@@ -182,10 +184,46 @@ def public_failure(exc: Exception) -> tuple[int, str, str, str]:
         return (422, "review_validation_rejected",
                 "The review note, citation or disposition failed local validation.",
                 "Use the selected finding, a fictional DEMO-* reviewer tag and a neutral administrative note.")
+    if isinstance(exc, CaseLensValidationError):
+        # Exact, locally authored validator rules only. Never expose
+        # user-provided evidence or raw model text in HTTP error responses.
+        safe_rules = {
+            "Nemotron did not return strict JSON": (
+                "caselens_invalid_json", "The explanation was not valid JSON."
+            ),
+            "Nemotron returned an invalid top-level structure": (
+                "caselens_structure", "The explanation did not match the required JSON structure."
+            ),
+            "Nemotron must address every CareFlow finding exactly once": (
+                "caselens_finding_coverage", "The explanation did not cover every finding."
+            ),
+            "Model fields not allowlisted": (
+                "caselens_unapproved_fields", "The explanation contained unsupported fields."
+            ),
+            "Model reason omitted mandatory source business ID": (
+                "caselens_missing_citation", "The explanation omitted a required retrieved record citation."
+            ),
+            "Nemotron cited a non-retrieved event or source record": (
+                "caselens_unretrieved_citation", "The explanation referenced a record not retrieved for this case."
+            ),
+            "Nemotron introduced an unknown subject identifier": (
+                "caselens_unknown_subject", "The explanation contained an unverified synthetic subject identifier."
+            ),
+            "Subject mismatch reason lacks both conflicting subjects": (
+                "caselens_missing_subjects", "The explanation omitted a required conflicting subject reference."
+            ),
+            "Model reason unsafe or out of bounds": (
+                "caselens_unsafe_reason", "The explanation text did not pass safety or length validation."
+            ),
+        }
+        rule = safe_rules.get(str(exc))
+        if rule:
+            return (422, rule[0], rule[1],
+                    "No unsupported explanation was accepted. Review the retrieved CareFlow evidence or explicitly try again.")
     if isinstance(exc, (CaseLensValidationError, NextStepValidationError)):
         return (422, "agent_validation_rejected",
                 "The output failed evidence-grounding or bounded-action validation.",
-                "Run the same case in the relevant CaseLens/NextStep CLI for a safe validator diagnostic.")
+                "No unsupported output was accepted. Review the verified source evidence; an explicit retry is optional.")
     if isinstance(exc, ZetarisQueryError):
         return (503, "zetaris_query_unavailable",
                 "The read-only synthetic source query could not be completed.",

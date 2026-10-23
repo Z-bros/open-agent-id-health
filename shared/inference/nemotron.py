@@ -33,7 +33,8 @@ class NVIDIAChatClient:
     """
 
     def __init__(self, *, api_key: str | None = None,
-                 model: str | None = None, timeout_seconds: int | None = None):
+                 model: str | None = None, timeout_seconds: int | None = None,
+                 json_output: bool = False):
         self.api_key = api_key if api_key is not None else os.environ.get("NVIDIA_API_KEY", "")
         self.model = model or os.environ.get("NEMOTRON_MODEL", DEFAULT_MODEL)
         if not _MODEL_NAME.fullmatch(self.model):
@@ -45,6 +46,9 @@ class NVIDIAChatClient:
         if not isinstance(timeout_seconds, int) or not 10 <= timeout_seconds <= 180:
             raise ValueError("Nemotron timeout must be 10 to 180 seconds")
         self.timeout_seconds = timeout_seconds
+        if type(json_output) is not bool:
+            raise ValueError("json_output must be an explicit boolean")
+        self.json_output = json_output
 
     def complete(self, messages: list[dict[str, str]]) -> str:
         if not self.api_key:
@@ -62,6 +66,11 @@ class NVIDIAChatClient:
             "temperature": 0.2,
             "stream": False,
         }
+        # Request provider JSON mode only when a caller explicitly requires
+        # structured content. The downstream critic still checks citation,
+        # content and review safety independently.
+        if self.json_output:
+            payload["response_format"] = {"type": "json_object"}
         # NVIDIA documents reasoning_effort=none for both Nemotron 3 Super and
         # Ultra. The latter otherwise defaults to high reasoning, which may
         # exhaust the bounded output budget before returning strict JSON.
@@ -108,6 +117,8 @@ class NVIDIAChatClient:
             obj = json.loads(raw)
             choice = obj["choices"][0]
             finish_reason = choice.get("finish_reason")
+            if self.json_output and finish_reason != "stop":
+                raise NemotronError("Provider did not finish a complete JSON response")
             if finish_reason in ("length", "content_filter", "tool_calls"):
                 # Report only the documented termination category, never model
                 # text or potentially identifying provider response content.
@@ -117,6 +128,11 @@ class NVIDIAChatClient:
             text = choice["message"]["content"]
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("Empty model answer")
+            if self.json_output:
+                try:
+                    json.loads(text)
+                except (json.JSONDecodeError, TypeError) as exc:
+                    raise NemotronError("Provider JSON mode returned malformed JSON") from exc
             return text
         except (KeyError, IndexError, ValueError, TypeError) as exc:
             raise NemotronError("Provider response is not a valid chat completion") from exc

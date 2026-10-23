@@ -120,3 +120,21 @@
 @media(max-width:950px){.journey-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-step:nth-child(2){border-right:0}.journey-step:nth-child(-n+2){border-bottom:1px solid #e7edf4}}
 @media(max-width:700px){.list-hint{margin-top:3px}.demo-picker{padding:15px}.demo-options{grid-template-columns:1fr;gap:7px}.scenario{min-height:0}.journey-header{align-items:flex-start;flex-direction:column;padding:16px}.journey-header .button{max-width:none;width:100%}.journey-step{padding:10px}.journey-index{width:24px;height:24px}.case-summary{display:none}.case-list button .case-id{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.button,.scenario{transition:none}*{scroll-behavior:auto!important}}
+
+
+/* Product Phase E — readable, independently validated AI failure states */
+.agent-grid{align-items:start}
+.agent{min-width:0;min-height:205px}
+.agent-status{overflow-wrap:anywhere}
+.agent-failure{border:1px solid #f0d1cd;background:#fff9f7;border-radius:10px;padding:15px;margin-top:10px}
+.agent-failure-heading{display:flex;gap:9px;align-items:center;color:#9d4e42;font-size:13px}
+.agent-failure-icon{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;color:#fff;background:#ba6655;font-size:12px;font-weight:750;flex:none}
+.agent-failure .agent-failure-summary{color:#74483e;font-size:12px;font-weight:600;margin:10px 0 4px}
+.agent-failure .agent-failure-context,.agent-failure .agent-failure-guidance{font-size:11px;line-height:1.6;color:#79655e;margin:6px 0}
+.agent-failure .agent-failure-guidance{color:#93614c}
+.agent-failure-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.agent-failure-controls>.button{width:auto;flex:1 1 150px;font-size:11px;padding:8px 10px}
+.agent-failure .agent-failure-note{font-size:10px;color:#8f847e;line-height:1.5;border-top:1px solid #f1d9d3;padding-top:11px;margin-top:13px}
+.ref:hover{border-color:#4786ce;background:#e9f3fe}
+.ref:focus-visible,.scenario:focus-visible,.journey-step:focus-visible,.agent-failure button:focus-visible{outline:3px solid #77a5e3;outline-offset:2px}
+@media(max-width:700px){.agent-failure{padding:12px}.agent-failure-controls{display:flex;flex-direction:column}.agent-failure-controls>.button{flex:initial;width:100%}}
