@@ -2,10 +2,35 @@
 from pathlib import Path
 from html.parser import HTMLParser
 from tempfile import TemporaryDirectory
+from contextlib import contextmanager
+from threading import Thread
+from http.server import ThreadingHTTPServer
+import http.client
+import json
 import unittest
 
 from apps.product.__main__ import STATIC, ProductService, make_handler
-from tests.test_product_phase_g import serve, call
+
+
+@contextmanager
+def serve(service):
+    with ThreadingHTTPServer(("127.0.0.1",0),make_handler(service)) as server:
+        thread=Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        try:
+            yield server.server_address[1]
+        finally:
+            server.shutdown()
+            thread.join(timeout=3)
+
+
+def call(port,path):
+    c=http.client.HTTPConnection("127.0.0.1",port,timeout=6)
+    c.request("GET",path)
+    resp=c.getresponse()
+    result=resp.status,json.loads(resp.read())
+    c.close()
+    return result
 
 ROOT=Path(__file__).resolve().parents[1]/"apps/product/web"
 
