@@ -138,3 +138,26 @@
 .ref:hover{border-color:#4786ce;background:#e9f3fe}
 .ref:focus-visible,.scenario:focus-visible,.journey-step:focus-visible,.agent-failure button:focus-visible{outline:3px solid #77a5e3;outline-offset:2px}
 @media(max-width:700px){.agent-failure{padding:12px}.agent-failure-controls{display:flex;flex-direction:column}.agent-failure-controls>.button{flex:initial;width:100%}}
+
+
+/* Phase G — truthful activity states, in-app attention only */
+.activity-center{background:#fff;border:1px solid #dce7f0;border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 3px 14px #1b355306}
+.activity-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 22px}
+.activity-heading h2{font-size:15px;margin:4px 0 3px}
+.activity-heading p{font-size:11px;color:#74879a;line-height:1.55;margin:3px 0 0}
+.activity-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.activity-unread{font-size:11px;border-radius:14px;background:#e7f2ff;color:#416f9c;padding:5px 10px;font-weight:750}
+.activity-status{font-size:11px;color:#617a92;padding:0 22px 13px;margin:0}
+.activity-feed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 22px 17px;max-height:252px;overflow-y:auto}
+.activity-entry{border:1px solid #e3eaf2;border-radius:9px;background:#fafcff;padding:10px 12px;min-width:0}
+.activity-entry[data-state="accepted"],.activity-entry[data-state="review_note_recorded"]{border-color:#caeadb;background:#f7fcf9}
+.activity-entry[data-state="rejected"],.activity-entry[data-state="failed"],.activity-entry[data-state="stale_evidence"]{border-color:#efdbd4;background:#fff9f7}
+.activity-entry[data-state="awaiting_human_review"]{border-color:#ecdcbf;background:#fdfbf6}
+.activity-entry-head{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:11px;color:#475b6d}
+.activity-entry-head strong{font-weight:750;color:#2e4761}
+.activity-entry-head span{font-size:10px;text-align:right;overflow-wrap:anywhere}
+.activity-entry-time{font-size:10px;color:#8a9cad;margin-top:5px}
+.activity-none{font-size:11px;color:#7d8c9d}
+.activity-disclosure{background:#f8fafc;border-top:1px solid #e8edf3;padding:12px 22px;font-size:10px;line-height:1.6;color:#8494a5;margin:0}
+@media(max-width:840px){.activity-feed{grid-template-columns:1fr}}
+@media(max-width:700px){.activity-heading{padding:15px;flex-direction:column;align-items:stretch}.activity-controls{justify-content:space-between}.activity-status{padding:0 15px 10px}.activity-feed{padding:0 15px 14px}.activity-disclosure{padding:12px 15px}}
