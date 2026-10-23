@@ -514,6 +514,52 @@ function renderPlan(report) {
     $("plan-result").append(block);
   }
 }
+function renderAgentFailure(kind, error) {
+  const container=kind==="explain"?"explanation":"plan-result";
+  clear(container);
+  const title=kind==="explain"?"No explanation accepted":"No verification plan accepted";
+  const card=el("div","agent-failure");
+  const headline=el("div","agent-failure-heading");
+  headline.append(el("span","agent-failure-icon","!"),el("strong","",title));
+  card.append(headline);
+
+  const code=String(error.code || "request_failed");
+  const description=code==="nvidia_incomplete_response" ?
+    "The hosted model did not provide a complete usable answer.":
+    code==="caselens_structure"||code==="caselens_invalid_json" ?
+    "The response did not follow the required explanation format.":
+    code.startsWith("caselens_")||code==="agent_validation_rejected" ?
+    "The response did not pass our independent evidence or safety checks.":
+    code==="nvidia_rate_limited"?"The provider is rate limiting requests.":
+    code==="nvidia_key_missing"||code==="nvidia_access_denied" ?
+    "Model access is unavailable in this local server session.":
+    "The requested hosted inference could not be verified.";
+  card.append(el("p","agent-failure-summary",description));
+  card.append(el("p","agent-failure-context",
+    "The source evidence remains available. No unsupported model result was accepted, and no verification query was executed."));
+  const support=el("p","agent-failure-guidance");
+  support.textContent=error.guidance || "Review the source-linked findings before deciding whether to retry.";
+  card.append(support);
+
+  const controls=el("div","agent-failure-controls");
+  const inspect=el("button","button secondary","View retrieved findings");
+  inspect.type="button";
+  inspect.addEventListener("click",()=>navigateSection("findings-card"));
+  controls.append(inspect);
+  if(!["nvidia_key_missing","nvidia_access_denied","nvidia_model_unavailable"].includes(code)){
+    const retry=el("button","button primary",
+      kind==="explain"?"Retry CaseLens explicitly":"Retry NextStep explicitly");
+    retry.type="button";
+    retry.addEventListener("click",()=>invokeAgent(kind));
+    controls.append(retry);
+  }
+  card.append(controls);
+  if(kind==="explain"){
+    card.append(el("p","agent-failure-note",
+      "NextStep may still return an independently validated read-only plan; that does not count as a successful full explanation-and-plan workflow."));
+  }
+  $(container).append(card);
+}
 async function invokeAgent(kind) {
   if(!state.current || !state.evidence || state.busy || state.workflow.evidence!=="retrieved")return;
   const caseId=state.current;
@@ -561,9 +607,8 @@ async function invokeAgent(kind) {
       renderJourney();
       return;
     }
-    $(statusId).textContent="Rejected or failed ["+(error.code || "request_failed")+"] · "+error.message+
-      (error.guidance ? " "+error.guidance : "")+" No substitute result was generated.";
-    $(containerId).append(el("p","", "No AI explanation or plan was accepted. You may deliberately retry this action; the verified CareFlow evidence remains available."));
+    $(statusId).textContent="Not accepted · "+String(error.code || "request_failed");
+    renderAgentFailure(kind,error);
     $(statusId).dataset.state="rejected";
     state.workflow[kind==="explain"?"explain":"plan"]="rejected";
     renderJourney();
