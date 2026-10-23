@@ -91,6 +91,8 @@ class ProductService:
         return {**bundle, "evidence_snapshot_sha256": snapshot_digest(bundle)}
 
     def meterless_audit(self, case_id: str) -> dict:
+        if not isinstance(case_id, str) or not CASE_RE.fullmatch(case_id):
+            raise ValueError("Only indexed fabricated CASE-TB-001–036 audit IDs are allowed")
         return self.audit_reader.read(case_id)
 
     def review_history(self, case_id: str) -> dict:
