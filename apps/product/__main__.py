@@ -94,7 +94,7 @@ class ProductService:
     def explain(self, case_id: str, expected_snapshot: str | None = None) -> dict:
         evidence = self._agent_evidence(case_id, expected_snapshot)
         return describe_case(
-            evidence, NVIDIAChatClient(model=self.model, json_output=True)
+            evidence, NVIDIAChatClient(model=self.model, json_output=True, temperature=0.0)
         )
 
     def plan(self, case_id: str, expected_snapshot: str | None = None) -> dict:
