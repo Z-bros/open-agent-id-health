@@ -452,7 +452,9 @@ async function submitReview(event){
     });
     if(token!==state.generation)return;
     $("review-status").textContent="Recorded "+saved.review_event_id+
-      ". This is a local administrative note, not an approval or external action.";
+      ". This is a local administrative note, not an approval or external action."+
+      (saved.activity_log_status==="unavailable"?
+        " The separate activity feed could not record this event; the review itself was saved.":"");
     $("review-confirm").checked=false;
     $("review-note").value="";
     state.reviewRequestId=null;
