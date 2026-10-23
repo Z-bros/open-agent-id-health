@@ -61,6 +61,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(out["provider_accepted"], 2)
         self.assertEqual(out["no_provider_needed"], 2)
         self.assertEqual(out["rejected_or_failed"], 0)
+        self.assertEqual(out["full_chain_eligible_trials"], 1)
+        self.assertEqual(out["full_chain_accepted"], 1)
         self.assertEqual(out["agents"]["CaseLens"]["model_calls"], 1)
         self.assertEqual(out["agents"]["NextStep"]["model_calls"], 1)
         self.assertEqual(out["proposed_queries_executed"], 0)
@@ -82,6 +84,8 @@ class Tests(unittest.TestCase):
         out = evaluate_live(["CASE-TB-018"], lambda _: source_bundle(), lambda: Provider("failed"))
         self.assertEqual(out["model_calls"], 2)
         self.assertEqual(out["rejected_or_failed"], 2)
+        self.assertEqual(out["full_chain_eligible_trials"], 1)
+        self.assertEqual(out["full_chain_accepted"], 0)
         self.assertEqual(out["agents"]["CaseLens"]["failure_categories"], {"provider_http_403": 1})
         self.assertEqual(out["agents"]["NextStep"]["failure_categories"], {"provider_http_403": 1})
         self.assertNotIn("secret-123", json.dumps(out))
@@ -92,7 +96,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(out["provider_accepted"], 1)
         self.assertEqual(out["rejected_or_failed"], 1)
         self.assertEqual(out["agents"]["NextStep"]["failure_categories"],
-                         {"grounding_or_contract_rejection": 1})
+                         {"nextstep_non_allowlisted_query": 1})
 
     def test_source_error_is_counted_before_provider(self):
         factory_calls = []
@@ -119,6 +123,26 @@ class Tests(unittest.TestCase):
             with self.subTest(cases=cases, repeats=repeats), self.assertRaises(ValueError):
                 evaluate_live(cases, lambda cid: source_bundle(cid), lambda: Provider(),
                               repeats=repeats)
+
+    def test_specific_caselens_rejection_categories_do_not_leak_text(self):
+        from apps.caselens.explain import CaseLensValidationError
+        from apps.nextstep.plan import NextStepValidationError
+        from apps.evaluation.nemotron_reliability import _error_category
+        samples = [
+            ("Model reason omitted mandatory source business ID", "caselens_missing_business_citation"),
+            ("Nemotron cited a non-retrieved event or source record", "caselens_unretrieved_citation"),
+            ("Nemotron did not return strict JSON", "caselens_invalid_json"),
+        ]
+        for safe_message, expected in samples:
+            self.assertEqual(_error_category(CaseLensValidationError(safe_message)), expected)
+        self.assertEqual(
+            _error_category(CaseLensValidationError("Private provider text sk-secret")),
+            "caselens_other_contract_rejection",
+        )
+        self.assertEqual(
+            _error_category(NextStepValidationError("Nemotron selected a non-allowlisted query")),
+            "nextstep_non_allowlisted_query",
+        )
 
     def test_safe_error_categories(self):
         self.assertEqual(_error_category(NemotronError("NVIDIA API HTTP 429; secret")),
