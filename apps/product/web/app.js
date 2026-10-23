@@ -162,7 +162,7 @@ function renderReviewHistory(data) {
     const box=el("div","history-entry");
     const row=el("div","history-header");
     row.append(el("strong","",dispositionNames[entry.disposition] || "Administrative note"),
-      el("span","history-time",new Date(entry.recorded_at_utc).toLocaleString()));
+      el("span","history-time",timeString(entry.recorded_at_utc)));
     box.append(row);
     box.append(el("p","",entry.note));
     box.append(el("div","history-meta","Tag: "+entry.reviewer_label+" · "+label(entry.finding_category)+
