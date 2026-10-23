@@ -424,3 +424,60 @@ Provider-side JSON mode compatibility and improved live success rate
 strict transport parsing, safe diagnostic codes, unchanged plain-mode
 NextStep transport, and explicit recovery UX. Real acceptance must
 be confirmed in the participant's browser without sharing API tokens.
+
+
+## Phase F — CaseLens exact-field contract improvement (23 Oct 2026)
+
+Participant's real browser (CASE-TB-018, running Phase E) showed
+`caselens_unapproved_fields` after CaseLens received a syntactically valid
+JSON reply. Independent NextStep still returned bounded proposals.
+
+For the Phase F candidate:
+- The CaseLens prompt now specifies the exact top-level key `explanations`
+  and exactly three allowed keys per object: `finding_index`,
+  `reason`, and `unresolved_question`.
+- The application supplies a model-output **empty-string template** with one
+  entry per retrieved CareFlow finding and fixed finding indices. It is only
+  an output format hint — it contains no fabricated explanation, oracle
+  labels, or predetermined answer.
+- Redundant `provisional_assessment` is omitted from the
+  model-facing evidence payload, reducing accidental copying of app-owned
+  assessment metadata into the model's output.
+- Only CaseLens uses temperature 0.0 (from the previous default 0.2).
+  Existing NVIDIA JSON mode and thinking-disabled settings remain.
+  NextStep's model transport and policies remain unchanged.
+- Critically, **the strict schema and citation validators are unchanged**:
+  extra model fields, missing citations, unknown subjects, clinical claims,
+  or unsafe review questions continue to fail closed.
+- These changes target output contract *compliance*. They do not establish
+  improved real hosted acceptance or clinical/explanation accuracy.
+
+### Participant acceptance
+
+From WSL2 repository root, stop the old localhost server and run:
+
+    git fetch origin
+    git switch --track origin/feat/product-phase-f-caselens-schema-prompt
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+
+Launch the same app:
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless \
+      --port 8765
+
+Hard refresh http://localhost:8765/ and deliberately generate **one**
+CaseLens explanation for CASE-TB-018. If successful, verify the reason
+cites CASE-TB-018, RES-TB-018 and both retrieved synthetic subject
+references. If rejected, report only the safe code shown in the UI;
+do not paste raw model text or credentials. Do not auto-retry or
+interpret a passing model explanation as a clinical outcome.
+
+NVIDIA's Lightning-specific documentation describes JSON mode as ensuring
+a JSON response but still requiring external schema validation. These
+output-template refinements leave that validation intact.
