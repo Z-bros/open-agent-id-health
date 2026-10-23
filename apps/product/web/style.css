@@ -196,3 +196,8 @@
   .agent .button[data-phase="waiting_for_model"]::before,
   .agent .button[data-phase="validating"]::before{animation:none;border-top-color:#79a7ce}
 }
+
+/* A validated agent step with an unresolved finding must not look like case clearance. */
+.journey-step.is-done.needs-review{background:#fff9ec}
+.journey-step.is-done.needs-review .journey-index{border-color:#eddaae;background:#fff0d0;color:#91621c}
+.journey-step.is-done.needs-review .journey-copy strong{color:#785b29}
