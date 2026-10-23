@@ -481,3 +481,49 @@ interpret a passing model explanation as a clinical outcome.
 NVIDIA's Lightning-specific documentation describes JSON mode as ensuring
 a JSON response but still requiring external schema validation. These
 output-template refinements leave that validation intact.
+
+
+## Product Phase G — truthful agent activity + in-app attention (23 Oct 2026)
+
+The consolidated draft candidate adds a **separate local activity feed**
+without changing Zetaris/CaseLens/NextStep/Meterless behavior or review
+permission boundaries.
+
+The server records real handler/provider milestones per case in an
+allowlisted append-only local activity store. Browser polling (every 2s,
+only when the page is visible) reads the latest checkpoints while a
+long model call is still in progress and updates the CaseLens/NextStep
+status text from server-confirmed retrieval/model-wait/validation stages.
+The in-app attention counter announces newly observed important
+events and allows the user to mark them noticed for this page session.
+
+**Important limits:** these states are not a language model's private
+thinking; activity is not in Meterless; a recorded local reviewer note
+is not an official approval; no system-wide authenticated inbox,
+background worker, email, browser push or closed-tab delivery exists.
+No automatic NextStep source checks are executed.
+
+Local setup (stop previous server, preserve local edits first):
+
+    git fetch origin
+    git switch --track origin/integrate/tbcareos-product-g-candidate
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --activity-dir outputs/activities \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless \
+      --port 8765
+
+Open http://localhost:8765/, hard-refresh, inspect
+**Live activity & review attention**, explicitly generate an agent
+explanation, and verify the event list/status changes from server
+records. Re-open to verify locally persisted checkpoints.
+
+For the exact finite-state contract, read
+[Phase G observed activity contract](../../docs/phase-g-activity-contract.md).
+This branch is a reviewed **direct-main consolidation candidate** in
+draft PR #23, not a completed merger or production release.
