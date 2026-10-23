@@ -166,8 +166,14 @@ class ProductService:
         # must still match. No client claims are treated as source evidence.
         bundle = self.evidence(case_id)
         note = self.reviews_store.record(bundle, draft)
-        self.activities.append(case_id, "review", "review_note_recorded",
-                               run_id=note["request_id"])
+        # The append-only review ledger is authoritative for this action.
+        # If ancillary activity storage is unavailable, do NOT tell the
+        # browser its review was lost or trick a user into resubmitting.
+        try:
+            self.activities.append(case_id, "review", "review_note_recorded",
+                                   run_id=note["request_id"])
+        except (ActivityLogError, OSError):
+            return {**note, "activity_log_status": "unavailable"}
         return note
 
     def activity_history(self, case_id: str) -> dict:
