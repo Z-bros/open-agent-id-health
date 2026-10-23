@@ -1,4 +1,4 @@
-"""TB-CareOS product phase A: localhost-only interactive administrative review app.
+"""TBCare localhost synthetic administrative investigation app.
 
 No official health integrations, patient contact, SQL mutations, or automatic
 AI calls. This server is a development/demo tool for synthetic cases only.
@@ -529,7 +529,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), make_handler(service))
-    print(f"TB-CareOS local app: http://{host}:{args.port}/", flush=True)
+    print(f"TBCare local app: http://{host}:{args.port}/", flush=True)
     print("Synthetic administrative evidence only. Ctrl+C stops the local app.", flush=True)
     try:
         server.serve_forever()
