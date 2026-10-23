@@ -53,3 +53,21 @@
 .review-error{font-size:12px;color:#a24137}
 @media(max-width:1050px){.review-grid{grid-template-columns:1fr}}
 @media(max-width:700px){.side-review-label{display:none}.review-activity-list{display:none}.review-grid{padding:15px}.review-info{margin:14px 15px 0}.history-header{flex-direction:column}.review-submit{font-size:13px}}
+
+/* Product phase C — genuine read-only Meterless event index */
+.audit-notice{margin:18px 22px 0;border:1px solid #d7e6ee;background:#f0f7fa;border-radius:9px;color:#486d7b;font-size:12px;padding:13px 17px;line-height:1.65}
+.audit-status{font-size:12px;color:#71889f;margin:16px 22px;overflow-wrap:anywhere}
+.audit-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin:10px 22px 18px}
+.audit-metrics>div{padding:15px 17px;background:#f7fafd;border:1px solid #e3eaf2;border-radius:9px}
+.audit-metrics span{display:block;font-size:11px;color:#7d8ba1;margin-bottom:7px}
+.audit-metrics strong{font-size:25px;letter-spacing:-.03em;line-height:1.4}
+.audit-event-list{margin:0 22px;max-height:400px;overflow-y:auto;border:1px solid #e5ebf3;border-radius:9px}
+.audit-event{padding:12px 15px;border-bottom:1px solid #e9eef5;background:white}
+.audit-event:last-child{border-bottom:0}
+.audit-event-head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.audit-event-id{font:12px ui-monospace,monospace;color:#315f95;font-weight:650}
+.audit-event-kind{font-size:10px;border:1px solid #d4e5f4;background:#edf5fd;padding:4px 8px;border-radius:6px;color:#527aa2}
+.audit-event-date{font-size:11px;color:#8595a8;margin-top:6px}
+.audit-truncation{margin:12px 22px 20px;font-size:11px;color:#7d8da1}
+@media(max-width:700px){.audit-metrics{grid-template-columns:repeat(2,1fr);gap:8px;margin:12px}
+.audit-notice{margin:12px 12px 0}.audit-event-list{margin:0 12px}}
