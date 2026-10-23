@@ -83,7 +83,7 @@ contained a record-shaped identifier outside the retrieved evidence
 allowlist; it does not establish whether the model hallucinated one or
 simply repeated an unresolved source link.
 
-### Safety-preserving prompt mitigation (implemented; real rerun pending)
+### Safety-preserving prompt mitigation (implemented; post-fix results below)
 
 The CaseLens prompt previously exposed raw link-target IDs from source
 metadata under `evidence[].links`, even when no record for that ID was
@@ -104,13 +104,45 @@ Regression tests verify that an unmatched target ID is absent from
 the model input, that a synthetic explanation citing the unreturned
 target still **fails closed**, and that existing subject-mismatch
 citations still work. Both GitHub CI suites passed on the prompt
-mitigation commit. **No claim of improved live CASE-TB-007 reliability
-until the participant reruns the hosted model.**
+mitigation commit. **The completed live rerun is reported below and did not show improved acceptance.**
 
 Next recommended live check: `CASE-TB-007` with `--repeats 2`,
 at most four hosted model calls. Inspect the new safe error categories
 and linked-chain metric. Keep the original failure counts in the
 submission evaluation appendix as pre-mitigation results.
+
+## Post-mitigation CASE-TB-007 rerun — 23 October 2026
+
+The participant completed the recommended two-trial hosted rerun after
+CaseLens stopped providing unmatched link-target IDs to the model.
+Report: `e10_case007_after_prompt.json`, 2026-10-23 03:49:08 UTC.
+
+| Metric | Observed |
+|---|---:|
+| Synthetic case and source verification | CASE-TB-007, passed |
+| Real hosted model calls | 4 |
+| CaseLens accepted | **0/2** |
+| NextStep accepted independently | **2/2** |
+| Fully linked explanation plus plan | **0/2** |
+| Source writes / suggested queries executed | 0 / 0 |
+
+CaseLens trial 1 failed with `provider_incomplete_or_other` after
+16,599 ms, an aggregated provider/incomplete-output category, not an
+exact underlying diagnosis. Trial 2 failed with `caselens_structure`
+after 2,401 ms, meaning the parsed JSON did not have precisely the
+required top-level shape. Neither trial surfaced the previous
+`caselens_unretrieved_citation` category.
+
+**Outcome:** The prompt mitigation did not establish improved live
+acceptance: 0/2 CaseLens responses passed. Different reported errors
+do not prove that dangling citations are fully resolved. The strict
+validator correctly continued failing closed. NextStep passed both
+trials against source evidence, but does not rescue the full chain.
+
+**Submission recommendation:** freeze the strict safety boundary;
+demonstrate already validated CASE-TB-001/009/018 and accurately
+disclose the observed failure rates. Treat CASE-TB-007 as an
+illustration of fail-closed handling if useful, not a forced success.
 
 ## Evidence scope and limitations
 
