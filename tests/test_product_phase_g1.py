@@ -48,6 +48,8 @@ class TBCareInteractionSemanticsTests(unittest.TestCase):
         self.assertIn('dataset.state=noFinding?"no_findings":"review_required"', JS)
         self.assertIn('.agent-status[data-state="review_required"]', CSS)
         self.assertIn('.activity-entry[data-needs-review="true"]', CSS)
+        self.assertIn('control.classList.toggle("needs-review",needsReview)', JS)
+        self.assertIn('.journey-step.is-done.needs-review', CSS)
         self.assertIn('state.workflow[kind]!=="running"', JS)
         self.assertNotIn('Accepted · Bounded agent output · Human review required', JS)
         self.assertNotIn("Both accepted", JS)
