@@ -150,6 +150,15 @@ class ReviewStoreTests(unittest.TestCase):
                         store.record(b, draft)
             self.assertEqual(store.history("CASE-TB-018"), [])
 
+    def test_short_gibberish_note_fails_structural_quality_check(self):
+        with TemporaryDirectory() as directory:
+            b = sample_bundle()
+            draft = new_draft(b)
+            draft["note"] = "sdfghjkhjkjhknijj"
+            with self.assertRaisesRegex(ReviewValidationError, "at least four words"):
+                ReviewStore(directory).record(b, draft)
+            self.assertEqual(ReviewStore(directory).history("CASE-TB-018"), [])
+
     def test_corrupt_log_fails_closed_without_rewriting(self):
         with TemporaryDirectory() as directory:
             p = Path(directory) / "case-tb-018.jsonl"

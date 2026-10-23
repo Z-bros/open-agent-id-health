@@ -89,6 +89,11 @@ def _check_request(bundle: dict[str, Any], draft: dict[str, Any]) -> dict[str, A
     ):
         raise ReviewValidationError("Use a 12–280-character synthetic administrative note")
     note = note.strip()
+    # A string of random characters is not a usable administrative note.
+    # This is a minimal structural quality check, not semantic verification.
+    meaningful_tokens = [word for word in note.split() if len(word) >= 4]
+    if len(note.split()) < 4 or len(meaningful_tokens) < 2:
+        raise ReviewValidationError("Write a short explanatory note with at least four words")
     _, _, allowed_records, allowed_subjects = _context(bundle)
     _verify_refs(note, allowed_records=allowed_records, allowed_subjects=allowed_subjects)
     if not _is_safe_string(note, 12, 280):

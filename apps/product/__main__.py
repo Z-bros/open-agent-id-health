@@ -19,6 +19,7 @@ from apps.caselens.explain import CaseLensValidationError, _context, describe_ca
 from apps.nextstep.plan import NextStepValidationError, plan_case
 from apps.product.review_store import (ReviewStore, ReviewValidationError,
                                        ReviewConflictError, snapshot_digest)
+from apps.product.audit_reader import MeterlessAuditReader, AuditReadError
 from shared.inference.nemotron import NVIDIAChatClient, NemotronError
 from shared.zetaris.readonly import ZetarisHelperClient, ZetarisQueryError
 
@@ -36,7 +37,9 @@ STATIC = {
 class ProductService:
     def __init__(self, *, helper: str | None, namespace: str = "TBCARE_OS",
                  fixture: Path | None = None, model: str = MODEL,
-                 review_dir: str | Path = "outputs/reviews"):
+                 review_dir: str | Path = "outputs/reviews",
+                 meterless_reference: str | Path | None = None,
+                 meterless_state_dir: str | Path = "outputs/meterless"):
         if fixture is None and not helper:
             raise ValueError("Provide --helper or --fixture")
         if fixture is not None and helper:
@@ -46,6 +49,10 @@ class ProductService:
         self.namespace = namespace
         self.model = model
         self.reviews_store = ReviewStore(review_dir)
+        self.audit_reader = MeterlessAuditReader(
+            meterless_reference or Path.home() / "Meterless/engines/world-model/reference",
+            meterless_state_dir,
+        )
 
     def list_cases(self) -> dict:
         """Advertise known synthetic IDs, NOT source availability/triage status."""
@@ -82,6 +89,11 @@ class ProductService:
     def evidence_response(self, case_id: str) -> dict:
         bundle = self.evidence(case_id)
         return {**bundle, "evidence_snapshot_sha256": snapshot_digest(bundle)}
+
+    def meterless_audit(self, case_id: str) -> dict:
+        if not isinstance(case_id, str) or not CASE_RE.fullmatch(case_id):
+            raise ValueError("Only indexed fabricated CASE-TB-001–036 audit IDs are allowed")
+        return self.audit_reader.read(case_id)
 
     def review_history(self, case_id: str) -> dict:
         return {
@@ -141,6 +153,10 @@ def public_failure(exc: Exception) -> tuple[int, str, str, str]:
         return (422, "nvidia_incomplete_response",
                 "NVIDIA returned an empty, incomplete or unsupported model response.",
                 "Try again. No unsupported output was accepted.")
+    if isinstance(exc, AuditReadError):
+        return (503, "meterless_audit_unavailable",
+                "No readable validated Meterless event history is available for this case.",
+                "Confirm Meterless reference installation, the local state directory, and prior E08 ingestion.")
     if isinstance(exc, ReviewConflictError):
         return (409, "review_conflict",
                 "The evidence changed or a review request ID was reused.",
@@ -245,6 +261,12 @@ def make_handler(service: ProductService):
             if path == "/api/review-activity":
                 self._safe_action(service.review_activity)
                 return
+            audit_match = re.fullmatch(
+                r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/audit", path
+            )
+            if audit_match:
+                self._safe_action(lambda: service.meterless_audit(audit_match.group(1)))
+                return
             review_match = re.fullmatch(
                 r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/reviews", path
             )
@@ -324,6 +346,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--review-dir", type=Path, default=Path("outputs/reviews"),
                         help="Local append-only synthetic administrative review notes")
+    parser.add_argument("--meterless-reference", type=Path,
+                        default=Path.home() / "Meterless/engines/world-model/reference",
+                        help="Local upstream Meterless World Model reference checkout")
+    parser.add_argument("--meterless-state-dir", type=Path, default=Path("outputs/meterless"),
+                        help="Local previously ingested Meterless state; audit GET never ingests")
     parser.add_argument("--model", default=os.getenv("NEMOTRON_MODEL", MODEL))
     args = parser.parse_args(argv)
     if not 1024 <= args.port <= 65535:
@@ -332,6 +359,8 @@ def main(argv: list[str] | None = None) -> int:
         helper=args.helper, namespace=args.namespace,
         fixture=args.fixture, model=args.model,
         review_dir=args.review_dir,
+        meterless_reference=args.meterless_reference,
+        meterless_state_dir=args.meterless_state_dir,
     )
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), make_handler(service))
