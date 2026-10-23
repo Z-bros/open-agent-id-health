@@ -68,7 +68,7 @@ function renderJourney() {
     (explanationReady||planReady)?"Partially generated":"Not requested";
   $("step-review").textContent=noFindings?"No cited finding to annotate":
     wf.reviewCount?wf.reviewCount+" local note"+(wf.reviewCount===1?"":"s"):
-    "No local note";
+    wf.reviewCount<0?"History unavailable":"No local note";
   $("step-audit").textContent=wf.audit==="available"?"Persisted events viewed":
     wf.audit==="empty"?"No archived events":wf.audit==="unavailable"?
     "Unavailable · no substitute":wf.audit==="loading"?"Reading…":"Not checked";
@@ -293,6 +293,8 @@ async function loadReviewHistory(id,token){
   }catch(error){
     if(token!==state.generation)return;
     $("review-history").replaceChildren(el("p","review-error","Could not load local review history: "+error.message));
+    state.workflow.reviewCount=-1;
+    renderJourney();
   }
 }
 async function loadReviewActivity(){
@@ -385,17 +387,23 @@ function renderAuditReport(report) {
 }
 async function loadMeterlessAudit(id,token) {
   $("audit-body").hidden=true;
+  state.workflow.audit="loading";
+  renderJourney();
   $("audit-status").textContent="Reading actual local Meterless event history…";
   try {
     const data=await request("/api/cases/"+encodeURIComponent(id)+"/audit");
     if(token!==state.generation)return;
     renderAuditReport(data);
+    state.workflow.audit=data.has_persisted_events?"available":"empty";
+    renderJourney();
   }catch(error){
     if(token!==state.generation)return;
     $("audit-status").textContent="Audit unavailable ["+(error.code||"request_failed")+
       "]: "+error.message+(error.guidance?" "+error.guidance:"")+
       " No events have been invented.";
     $("audit-body").hidden=true;
+    state.workflow.audit="unavailable";
+    renderJourney();
   }
 }
 async function loadCase(id) {
@@ -403,6 +411,7 @@ async function loadCase(id) {
   state.current=id;
   state.evidence=null;
   state.reviewRequestId=null;
+  resetWorkflow();
   renderList();
   hideError();
   $("case-title").textContent=id;
@@ -416,6 +425,11 @@ async function loadCase(id) {
     const bundle=await request("/api/cases/"+encodeURIComponent(id)+"/evidence");
     if(token!==state.generation)return;
     state.evidence=bundle;
+    state.workflow.evidence="retrieved";
+    state.workflow.reviewCount=-1;
+    state.inspected.set(id,{findings:bundle.exceptions.length, observations:bundle.observations.length});
+    renderJourney();
+    renderList();
     $("case-subtitle").textContent="Synthetic administrative case · Source observations and bounded review";
     $("stat-evidence").textContent=bundle.observations.length;
     $("stat-checks").textContent=bundle.source_checks.length;
@@ -437,6 +451,8 @@ async function loadCase(id) {
     showError("Evidence retrieval failed. "+error.message+" Do not interpret this as missing care.");
     $("content-empty").replaceChildren(el("p","", "Source evidence could not be verified."));
     $("case-subtitle").textContent="Retrieval unsuccessful";
+    state.workflow.evidence="failed";
+    renderJourney();
   } finally {
     if(token===state.generation)setLoad(false);
   }
@@ -484,6 +500,9 @@ async function invokeAgent(kind) {
   const containerId=kind==="explain"?"explanation":"plan-result";
   clear(containerId);
   $(statusId).textContent="Running "+actionName+" with hosted Nemotron…";
+  $(statusId).dataset.state="running";
+  state.workflow[kind==="explain"?"explain":"plan"]="running";
+  renderJourney();
   setLoad(true);
   try{
     const result=await request("/api/cases/"+encodeURIComponent(caseId)+"/"+kind,
@@ -491,12 +510,21 @@ async function invokeAgent(kind) {
     if(token!==state.generation)return;
     if(kind==="explain")renderExplanation(result);
     else renderPlan(result);
-    $(statusId).textContent="Completed · Human review required";
+    const noFinding=kind==="explain" && result.hypotheses.length===0;
+    $(statusId).textContent=noFinding?
+      "No CareFlow finding · no model call required · human review remains":
+      "Accepted · Evidence-bound result · Human review required";
+    $(statusId).dataset.state="accepted";
+    state.workflow[kind==="explain"?"explain":"plan"]=noFinding?"no_findings":"accepted";
+    renderJourney();
   } catch(error){
     if(token!==state.generation)return;
-    $(statusId).textContent="Failed ["+(error.code || "request_failed")+"] · "+error.message+
+    $(statusId).textContent="Rejected or failed ["+(error.code || "request_failed")+"] · "+error.message+
       (error.guidance ? " "+error.guidance : "")+" No substitute result was generated.";
-    $(containerId).append(el("p","", "The model/source invocation failed. No outcome can be inferred."));
+    $(containerId).append(el("p","", "No AI explanation or plan was accepted. You may deliberately retry this action; the verified CareFlow evidence remains available."));
+    $(statusId).dataset.state="rejected";
+    state.workflow[kind==="explain"?"explain":"plan"]="rejected";
+    renderJourney();
   } finally { if(token===state.generation)setLoad(false); }
 }
 async function init(){
