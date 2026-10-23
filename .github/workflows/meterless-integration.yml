@@ -117,3 +117,26 @@ jobs:
           assert previous["durable_state"]["event_count"]==current["durable_state"]["event_count"]
           print("E08 persisted agent reports reloaded with no duplicate events")
           PY
+      - name: Read genuine persisted Meterless event history for product Phase C
+        run: |
+          PYTHONPATH=src:. python3 - <<'PY'
+          import json
+          from apps.product.audit_reader import MeterlessAuditReader
+          from pathlib import Path
+          import os
+          ref=Path(os.environ["RUNNER_TEMP"])/"meterless/engines/world-model/reference"
+          reader=MeterlessAuditReader(ref, "outputs/meterless")
+          previous=json.load(open("/tmp/e08_second.json"))
+          first=reader.read("CASE-TB-018")
+          second=reader.read("CASE-TB-018")
+          assert first==second, "The read-only event index must be stable"
+          assert first["store"]=="real_meterless_reference"
+          assert first["event_count"]==previous["durable_state"]["event_count"]
+          assert first["audit_count"]==previous["durable_state"]["audit_count"]
+          assert first["has_persisted_events"]
+          assert first["events"]
+          assert first["events"][-1]["event_id"]==previous["durable_state"]["most_recent_events"][-1]["event_id"]
+          assert all(e["event_id"].startswith("evt_") for e in first["events"])
+          assert first["timestamp_meaning"].startswith("Synthetic evidence snapshot")
+          print("Product C: genuine persisted Meterless events retrieved read-only; no new ingest")
+          PY
