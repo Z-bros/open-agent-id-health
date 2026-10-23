@@ -339,6 +339,20 @@ function renderActivity(data) {
     }
   }
   renderAttentionCount();
+  // Update only in-flight status labels from actually persisted server
+  // checkpoints. Terminal acceptance/rejection remains owned by the
+  // response validator and the explicit invokeAgent() result.
+  for(const [kind,operation,statusId] of [
+    ["explain","caselens","explain-status"],
+    ["plan","nextstep","plan-status"],
+  ]){
+    if(state.workflow[kind]!=="running")continue;
+    const latest=[...events].reverse().find(e=>e.operation===operation);
+    if(latest && ["retrieving_evidence","waiting_for_model","validating"].includes(latest.state)){
+      $(statusId).textContent=(ACTIVITY_STATES[latest.state]||"Processing")+
+        " · Observed server checkpoint";
+    }
+  }
   $("activity-status").textContent=data.total?
     data.total+" recorded checkpoints · "+(data.truncated?"Latest 100 shown":"Current synthetic case")+
     " · In-app only":
