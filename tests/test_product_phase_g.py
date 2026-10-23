@@ -195,6 +195,29 @@ class ActivityHTTPTests(unittest.TestCase):
                     self.assertEqual(states[-1],"rejected")
                     self.assertNotIn("accepted",states)
 
+    def test_saved_review_remains_saved_if_secondary_activity_log_fails(self):
+        with TemporaryDirectory() as tmp:
+            srv=self.service(tmp)
+            bundle=srv.evidence_response("CASE-TB-018")
+            issue=bundle["exceptions"][0]
+            draft={
+                "finding_index":0,
+                "finding_category":issue["category"],
+                "evidence_record_ids":issue["evidence_record_ids"],
+                "evidence_snapshot_sha256":bundle["evidence_snapshot_sha256"],
+                "reviewer_label":"DEMO-REVIEWER",
+                "disposition":"reviewed_unresolved",
+                "note":"Review the cited synthetic source discrepancy before any next step.",
+                "request_id":str(uuid.uuid4()),
+            }
+            with patch.object(srv.activities,"append",
+                              side_effect=ActivityLogError("activity unavailable")):
+                saved=srv.record_review("CASE-TB-018",draft)
+            self.assertEqual(saved["activity_log_status"],"unavailable")
+            self.assertFalse(saved["official_action_taken"])
+            self.assertEqual(len(srv.review_history("CASE-TB-018")["reviews"]),1)
+            self.assertEqual(srv.activity_history("CASE-TB-018")["total"],0)
+
     def test_ui_only_polls_activity_no_background_worker_claims(self):
         js=(WEB/"app.js").read_text()
         html=(WEB/"index.html").read_text()
