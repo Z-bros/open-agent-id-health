@@ -1,4 +1,4 @@
-# TB-CareOS Phase G — observed agent activity and human attention
+# TBCare Phase G — observed agent activity and human attention
 
 **Candidate:** \`integrate/tbcareos-product-g-candidate\` (from Phase F), 23 October 2026.
 **Scope:** localhost synthetic administrative investigation, read-only Zetaris,
@@ -14,6 +14,29 @@ provided, reconstructed, or implied by these statuses.
 The activity feed is a **fifth distinct application-level storage surface**,
 NOT the upstream Meterless event stream, CareFlow source evidence, a reviewer
 decision, or an external notification service.
+
+## Phase G.1 — user-facing button and review semantics
+
+- When a user explicitly clicks either agent button, it immediately displays
+  "Sending ... request". The page subsequently reflects **only observed
+  server checkpoints** in the same button (source retrieval, model wait, and
+  reply validation), with a CSS spinner that honors reduced-motion settings.
+  No client timer invents a model's internal work.
+- A CaseLens explanation or NextStep plan that passes technical validation
+  is **not case clearance**: the result is amber and says "Review required".
+  NextStep explicitly says its proposed queries are *not executed*.
+- When no discrepancy was flagged, the status is neutral and explicitly
+  says source completeness is not certified. Rejected or stale outputs are
+  red and retain the existing deliberate retry/refresh workflow.
+- The server activity event `accepted` is retained for backward-compatible
+  technical event contracts, but its user-visible label distinguishes a
+  validated *step* from administrative case resolution.
+- TBCare is the product-facing name. The existing `TBCARE_OS`
+  SQL namespace, `CASE-TB-*` identifiers and `X-TBCareOS-*`
+  API headers remain unchanged for compatibility.
+
+These improvements do not add an asynchronous worker, clinical urgency
+classification, official approvals or automated source writes.
 
 ## Current functionality (Phase G initial slice)
 
