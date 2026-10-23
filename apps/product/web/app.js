@@ -39,8 +39,8 @@ async function request(path, opts) {
 function setLoad(active) {
   state.busy = active;
   $("refresh").disabled = !state.current || active;
-  $("explain").disabled = active;
-  $("plan").disabled = active;
+  $("explain").disabled = active || !state.evidence;
+  $("plan").disabled = active || !state.evidence;
   $("save-review").disabled = active || !state.evidence || !state.evidence.exceptions.length;
 }
 function navigateSection(sectionId) {
@@ -67,8 +67,8 @@ function renderJourney() {
     anyRunning?"Generating…":explanationReady && planReady?"Both accepted":
     (explanationReady||planReady)?"Partially generated":"Not requested";
   $("step-review").textContent=noFindings?"No cited finding to annotate":
-    wf.reviewCount?wf.reviewCount+" local note"+(wf.reviewCount===1?"":"s"):
-    wf.reviewCount<0?"History unavailable":"No local note";
+    wf.reviewCount<0?"History unavailable":
+    wf.reviewCount>0?wf.reviewCount+" local note"+(wf.reviewCount===1?"":"s"):"No local note";
   $("step-audit").textContent=wf.audit==="available"?"Persisted events viewed":
     wf.audit==="empty"?"No archived events":wf.audit==="unavailable"?
     "Unavailable · no substitute":wf.audit==="loading"?"Reading…":"Not checked";
@@ -97,15 +97,16 @@ function renderJourney() {
     summary=noFindings?
       "No rule-based discrepancy was found in this source snapshot; this does not establish completeness. You can inspect the bounded no-finding agent path.":
       "CareFlow findings are ready. Ask CaseLens and NextStep explicitly; their results remain separate until validated.";
-  }else if (!noFindings && !wf.reviewCount){
+  }else if (!noFindings && wf.reviewCount===0){
     target="review-panel";
     labelText="Go to local review →";
     summary="Both agent outputs were accepted. You can write a fictional, non-clinical note against a cited CareFlow finding.";
   }else{
     target="meterless-audit";
     labelText="Inspect event history →";
-    summary=wf.reviewCount?
+    summary=wf.reviewCount>0?
       "Local note recorded, not an approval. The Meterless event history is a separate read-only store.":
+      wf.reviewCount<0?"Review history could not be verified. Inspect locally, then view the separate Meterless audit.":
       "No finding is available for a cited local note. Inspect genuine archived events, if previously persisted.";
   }
   $("journey-summary").textContent=summary;
@@ -147,7 +148,7 @@ function renderList() {
     if(inspected){
       right.append(el("span",inspected.findings?"case-label flagged":"case-label inspected",
         inspected.findings?inspected.findings+" finding"+(inspected.findings===1?"":"s"):
-        "Checked"));
+        "Read"));
     }else{
       right.append(el("span","case-label uninspected","Not checked"));
     }
@@ -413,6 +414,11 @@ async function loadCase(id) {
   state.reviewRequestId=null;
   resetWorkflow();
   renderList();
+  document.querySelectorAll("[data-demo-case]").forEach(btn=>{
+    const selected=btn.dataset.demoCase===id;
+    btn.classList.toggle("active",selected);
+    btn.setAttribute("aria-pressed",String(selected));
+  });
   hideError();
   $("case-title").textContent=id;
   $("crumb-case").textContent=id;
@@ -446,6 +452,8 @@ async function loadCase(id) {
     clear("explanation");clear("plan-result");
     $("explain-status").textContent="Not requested";
     $("plan-status").textContent="Not requested";
+    $("explain-status").dataset.state="idle";
+    $("plan-status").dataset.state="idle";
   } catch(error) {
     if(token!==state.generation)return;
     showError("Evidence retrieval failed. "+error.message+" Do not interpret this as missing care.");
@@ -511,9 +519,11 @@ async function invokeAgent(kind) {
     if(kind==="explain")renderExplanation(result);
     else renderPlan(result);
     const noFinding=kind==="explain" && result.hypotheses.length===0;
+    const noPlanModel=kind==="plan" && state.evidence.exceptions.length===0;
     $(statusId).textContent=noFinding?
       "No CareFlow finding · no model call required · human review remains":
-      "Accepted · Evidence-bound result · Human review required";
+      noPlanModel?"Bounded review/stop plan · no model call required":
+      "Accepted · Bounded agent output · Human review required";
     $(statusId).dataset.state="accepted";
     state.workflow[kind==="explain"?"explain":"plan"]=noFinding?"no_findings":"accepted";
     renderJourney();
