@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>TB-CareOS · Administrative Review</title>
+  <title>TBCare · Administrative Review</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
@@ -12,7 +12,7 @@
 <a class="skip-link" href="#investigation">Skip to investigation</a>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><div class="mark">✳</div><div><b>TB-CareOS</b><span>Evidence operations</span></div></div>
+    <div class="brand"><div class="mark">✳</div><div><b>TBCare</b><span>Evidence operations</span></div></div>
     <div class="side-label">WORKSPACE</div>
     <div class="nav-active"><span class="nav-glyph">▤</span> Case explorer <span class="mini-tag">MVP</span></div>
     <div class="side-label side-label-second">SYNTHETIC CASES <span id="case-count" class="count">—</span></div>
@@ -87,8 +87,8 @@
         </div>
         <section class="card agent-card" id="agent-investigation"><div class="card-head"><div><h2>Agent investigation</h2><p>Invoke bounded inference explicitly; no automatic actions</p></div><span class="chip">NVIDIA Nemotron</span></div>
           <div class="agent-grid">
-            <div class="agent"><div class="agent-top"><span class="agent-icon">◇</span><div><b>CaseLens</b><span>Evidence-grounded explanation</span></div></div><button id="explain" class="button primary">Generate explanation →</button><div id="explain-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="explanation" class="agent-result"></div></div>
-            <div class="agent"><div class="agent-top"><span class="agent-icon">⇢</span><div><b>NextStep</b><span>Bounded verification proposals</span></div></div><button id="plan" class="button primary">Generate verification plan →</button><div id="plan-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="plan-result" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon">◇</span><div><b>CaseLens</b><span>Evidence-grounded explanation</span></div></div><button id="explain" type="button" class="button primary" aria-busy="false" data-phase="idle">Generate explanation →</button><div id="explain-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="explanation" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon">⇢</span><div><b>NextStep</b><span>Bounded verification proposals</span></div></div><button id="plan" type="button" class="button primary" aria-busy="false" data-phase="idle">Generate verification plan →</button><div id="plan-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="plan-result" class="agent-result"></div></div>
           </div>
           <p class="agent-disclaimer">Agent generation can call the NVIDIA hosted model. Plans are proposals only: this application does not execute suggested checks or contact anyone.</p>
         </section>
@@ -132,7 +132,7 @@
           </div>
         </section>
       </div>
-      <footer>TB-CareOS · Open Agent Hackathon 2026 · Synthetic administrative evidence · Not a clinical decision system</footer>
+      <footer>TBCare · Open Agent Hackathon 2026 · Synthetic administrative evidence · Not a clinical decision system</footer>
     </div>
   </main>
 </div>
