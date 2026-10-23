@@ -337,11 +337,19 @@ def make_handler(service: ProductService):
                 self._respond(400, {"error": "Only the synthetic 36-case ID list is allowed"})
                 return
             expected_snapshot = self.headers.get("X-TBCareOS-Evidence-SHA256")
-            self._safe_action(
-                lambda: service.explain(case_id, expected_snapshot=expected_snapshot)
-                if method == "explain"
-                else service.plan(case_id, expected_snapshot=expected_snapshot)
-            )
+            if expected_snapshot is None:
+                # Preserve the original local API/CLI contract for callers
+                # that did not provide a browser evidence snapshot.
+                self._safe_action(
+                    lambda: service.explain(case_id) if method == "explain"
+                    else service.plan(case_id)
+                )
+            else:
+                self._safe_action(
+                    lambda: service.explain(case_id, expected_snapshot=expected_snapshot)
+                    if method == "explain"
+                    else service.plan(case_id, expected_snapshot=expected_snapshot)
+                )
 
         def do_PUT(self):
             self._respond(405, {"error": "No source mutations or clinical writes permitted"})
