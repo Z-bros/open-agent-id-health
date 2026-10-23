@@ -1,4 +1,4 @@
-/* TB-CareOS local product MVP. Render untrusted evidence with textContent only. */
+/* TBCare local product. Render untrusted evidence with textContent only. */
 "use strict";
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -8,6 +8,7 @@ const state = {
   // Local reviewer notes are loaded separately; neither marks a case "resolved".
   inspected: new Map(), localNotes: new Map(), sourceMode: null,
   activitySeen: new Map(), activityUnread: new Set(), activityPending: false,
+  agentStartedAt: {explain:null, plan:null},
   workflow: {
     evidence: "not_checked", explain: "not_requested", plan: "not_requested",
     reviewCount: 0, audit: "not_checked",
@@ -44,6 +45,45 @@ function setLoad(active) {
   $("plan").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved";
   $("save-review").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved" || !state.evidence.exceptions.length;
 }
+
+const BUTTON_PHASE_COPY=Object.freeze({
+  explain:{
+    idle:"Generate explanation →",
+    requested:"Sending explanation request…",
+    retrieving_evidence:"Checking source evidence…",
+    waiting_for_model:"Waiting for explanation…",
+    validating:"Checking explanation citations…",
+    accepted:"Generate explanation again ↻",
+    rejected:"Retry explanation →",
+    stale_evidence:"Refresh evidence first",
+  },
+  plan:{
+    idle:"Generate verification plan →",
+    requested:"Sending plan request…",
+    retrieving_evidence:"Checking source evidence…",
+    waiting_for_model:"Waiting for verification plan…",
+    validating:"Validating proposed checks…",
+    accepted:"Generate verification plan again ↻",
+    rejected:"Retry verification plan →",
+    stale_evidence:"Refresh evidence first",
+  },
+});
+const ACTIVE_BUTTON_PHASES=new Set([
+  "requested","retrieving_evidence","waiting_for_model","validating"
+]);
+function setAgentButtonPhase(kind,phase){
+  const button=$(kind==="explain"?"explain":"plan");
+  const copy=BUTTON_PHASE_COPY[kind];
+  if(!button || !copy || !Object.hasOwn(copy,phase))return;
+  button.textContent=copy[phase];
+  button.dataset.phase=phase;
+  button.setAttribute("aria-busy",String(ACTIVE_BUTTON_PHASES.has(phase)));
+}
+function resetAgentButtons(){
+  setAgentButtonPhase("explain","idle");
+  setAgentButtonPhase("plan","idle");
+}
+
 function navigateSection(sectionId) {
   if (!state.evidence) return;
   const target=$(sectionId);
@@ -66,9 +106,10 @@ function renderJourney() {
   $("step-evidence").textContent=wf.evidence==="retrieved"?
     (impaired?"Partial source access":"Source checks retrieved"):wf.evidence==="loading"?"Retrieving…":
     wf.evidence==="failed"?"Source read failed":wf.evidence==="stale"?"Outdated snapshot":"Not checked";
-  $("step-agents").textContent=agentRejected?"Rejected output · manual review":
-    anyRunning?"Generating…":explanationReady && planReady?"Both accepted":
-    (explanationReady||planReady)?"Partially generated":"Not requested";
+  $("step-agents").textContent=agentRejected?"Output rejected · review needed":
+    anyRunning?"Processing request…":explanationReady && planReady?
+    (noFindings?"No finding · bounded steps ready":"Both validated · review required"):
+    (explanationReady||planReady)?"One step validated · review needed":"Not requested";
   $("step-review").textContent=noFindings?"No cited finding to annotate":
     wf.reviewCount<0?"History unavailable":
     wf.reviewCount>0?wf.reviewCount+" local note"+(wf.reviewCount===1?"":"s"):"No local note";
@@ -106,7 +147,7 @@ function renderJourney() {
   }else if (!noFindings && wf.reviewCount===0){
     target="review-panel";
     labelText="Go to local review →";
-    summary="Both agent outputs were accepted. You can write a fictional, non-clinical note against a cited CareFlow finding.";
+    summary="Both AI outputs passed technical validation, but the administrative discrepancy remains unresolved. Record a fictional review note or inspect cited evidence.";
   }else{
     target="meterless-audit";
     labelText="Inspect event history →";
@@ -347,10 +388,16 @@ function renderActivity(data) {
     ["plan","nextstep","plan-status"],
   ]){
     if(state.workflow[kind]!=="running")continue;
-    const latest=[...events].reverse().find(e=>e.operation===operation);
+    const started=state.agentStartedAt[kind];
+    if(!started)continue;
+    // Older requests never advance a freshly clicked button. Only real
+    // server activity on/after this explicit click can update the label.
+    const latest=[...events].reverse().find(e=>e.operation===operation &&
+      Date.parse(e.occurred_at_utc)>=started);
     if(latest && ["retrieving_evidence","waiting_for_model","validating"].includes(latest.state)){
       $(statusId).textContent=(ACTIVITY_STATES[latest.state]||"Processing")+
         " · Observed server checkpoint";
+      setAgentButtonPhase(kind,latest.state);
     }
   }
   $("activity-status").textContent=data.total?
@@ -521,6 +568,8 @@ async function loadCase(id) {
   clear("activity-feed");
   state.evidence=null;
   state.reviewRequestId=null;
+  state.agentStartedAt={explain:null,plan:null};
+  resetAgentButtons();
   resetWorkflow();
   renderList();
   document.querySelectorAll("[data-demo-case]").forEach(btn=>{
@@ -568,6 +617,7 @@ async function loadCase(id) {
     $("plan-status").textContent="Not requested";
     $("explain-status").dataset.state="idle";
     $("plan-status").dataset.state="idle";
+    resetAgentButtons();
   } catch(error) {
     if(token!==state.generation)return;
     showError("Evidence retrieval failed. "+error.message+" Do not interpret this as missing care.");
@@ -667,9 +717,11 @@ async function invokeAgent(kind) {
   const actionName=kind==="explain"?"CaseLens":"NextStep";
   const containerId=kind==="explain"?"explanation":"plan-result";
   clear(containerId);
-  $(statusId).textContent="Running "+actionName+" with hosted Nemotron…";
+  $(statusId).textContent="Requesting "+actionName+" · awaiting server checkpoint…";
   $(statusId).dataset.state="running";
   state.workflow[kind==="explain"?"explain":"plan"]="running";
+  state.agentStartedAt[kind]=Date.now();
+  setAgentButtonPhase(kind,"requested");
   renderJourney();
   setLoad(true);
   try{
@@ -681,10 +733,13 @@ async function invokeAgent(kind) {
     const noFinding=kind==="explain" && result.hypotheses.length===0;
     const noPlanModel=kind==="plan" && state.evidence.exceptions.length===0;
     $(statusId).textContent=noFinding?
-      "No CareFlow finding · no model call required · human review remains":
-      noPlanModel?"Bounded review/stop plan · no model call required":
-      "Accepted · Bounded agent output · Human review required";
-    $(statusId).dataset.state="accepted";
+      "No discrepancy flagged in this snapshot · Evidence not certified complete":
+      noPlanModel?"Bounded review/stop plan validated · No model call required":
+      kind==="explain"?
+      "Explanation validated · Administrative review required":
+      "Verification proposals validated · Not executed · Human review required";
+    $(statusId).dataset.state=noFinding?"no_findings":"review_required";
+    setAgentButtonPhase(kind,"accepted");
     state.workflow[kind==="explain"?"explain":"plan"]=noFinding?"no_findings":"accepted";
     renderJourney();
     refreshActivity(caseId,token);
@@ -701,8 +756,10 @@ async function invokeAgent(kind) {
       clear("explanation");clear("plan-result");
       $("explain-status").textContent="Outdated source snapshot · refresh evidence";
       $("plan-status").textContent="Outdated source snapshot · refresh evidence";
-      $("explain-status").dataset.state="rejected";
-      $("plan-status").dataset.state="rejected";
+      $("explain-status").dataset.state="stale";
+      $("plan-status").dataset.state="stale";
+      setAgentButtonPhase("explain","stale_evidence");
+      setAgentButtonPhase("plan","stale_evidence");
       showError("Evidence changed since this case was opened. Refresh evidence before another agent request or local review note.");
       renderJourney();
       refreshActivity(caseId,token);
@@ -712,9 +769,15 @@ async function invokeAgent(kind) {
     renderAgentFailure(kind,error);
     refreshActivity(caseId,token);
     $(statusId).dataset.state="rejected";
+    setAgentButtonPhase(kind,"rejected");
     state.workflow[kind==="explain"?"explain":"plan"]="rejected";
     renderJourney();
-  } finally { if(token===state.generation)setLoad(false); }
+  } finally {
+    if(token===state.generation){
+      state.agentStartedAt[kind]=null;
+      setLoad(false);
+    }
+  }
 }
 async function init(){
   $("case-search").addEventListener("input",renderList);
