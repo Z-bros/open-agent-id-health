@@ -54,6 +54,58 @@ To try the interface without NVIDIA or Zetaris access:
 Only CASE-TB-018 appears in fixture mode. Real CaseLens and NextStep
 button clicks still require NVIDIA; no mock answer is generated.
 
+## Troubleshooting agent buttons (CASE-TB-012, or any synthetic case)
+
+Successful CareFlow evidence retrieval does **not** guarantee that NVIDIA
+inference will be permitted or that every generated sentence passes the
+grounding validator. For example, a lab result status of "not_found" with a
+retrieved order ID is legitimate evidence of an *administrative review
+question*, not evidence that care was omitted.
+
+When you see a model error, the API now exposes one **sanitized** error_code
+and next_step; it does not expose raw provider response bodies or credentials.
+
+- nvidia_key_missing: NVIDIA_API_KEY was not in the **server process
+  environment**. Setting it in another WSL terminal does not update a
+  running server. Stop the server, load the key privately, and restart.
+- nvidia_access_denied: NVIDIA HTTP 401 or 403; inspect model entitlement
+  and key locally.
+- nvidia_model_unavailable: NVIDIA HTTP 404; inspect the requested model.
+- nvidia_timeout, nvidia_rate_limited or nvidia_incomplete_response:
+  provider unavailable/limited or did not return a complete valid answer.
+- agent_validation_rejected: the model/source output did not pass
+  deterministic citation, format or bounded-action checks. Do not bypass
+  the checks or invent supporting records.
+
+Confirm only whether the key is loaded; do not echo its value:
+
+    python3 -c 'import os; print("NVIDIA_API_KEY available:", bool(os.getenv("NVIDIA_API_KEY")))'
+
+To load a key in a WSL Bash shell without putting it in command history:
+
+    read -rsp "NVIDIA API key: " NVIDIA_API_KEY
+    echo
+    export NVIDIA_API_KEY
+
+Then run the same CaseLens CLI separately to get a safe diagnostic:
+
+    PYTHONPATH=src:. python3 -m apps.caselens \
+      --case-id CASE-TB-012 \
+      --namespace TBCARE_OS \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b
+
+For a clearly labeled **offline NextStep deterministic baseline** when
+the provider is unavailable, use the CLI, not the product's model button:
+
+    PYTHONPATH=src:. python3 -m apps.nextstep \
+      --case-id CASE-TB-012 \
+      --namespace TBCARE_OS \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --offline
+
+Offline output is not represented as a Nemotron answer.
+
 ## Product guardrails
 
 - Only synthetic IDs CASE-TB-001 through CASE-TB-036 accepted.
