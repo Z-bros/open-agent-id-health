@@ -18,7 +18,12 @@ async function request(path, opts) {
   let data;
   try { data = await response.json(); }
   catch { throw new Error("Server returned an unreadable response."); }
-  if (!response.ok) throw new Error(data.error || "Request did not complete.");
+  if (!response.ok) {
+    const error = new Error(data.error || "Request did not complete.");
+    error.code = typeof data.error_code === "string" ? data.error_code : "request_failed";
+    error.guidance = typeof data.next_step === "string" ? data.next_step : "";
+    throw error;
+  }
   return data;
 }
 function setLoad(active) {
@@ -211,7 +216,8 @@ async function invokeAgent(kind) {
     $(statusId).textContent="Completed · Human review required";
   } catch(error){
     if(token!==state.generation)return;
-    $(statusId).textContent="Failed · "+error.message+" No substitute result was generated.";
+    $(statusId).textContent="Failed ["+(error.code || "request_failed")+"] · "+error.message+
+      (error.guidance ? " "+error.guidance : "")+" No substitute result was generated.";
     $(containerId).append(el("p","", "The model/source invocation failed. No outcome can be inferred."));
   } finally { if(token===state.generation)setLoad(false); }
 }
