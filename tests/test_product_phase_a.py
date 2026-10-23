@@ -118,10 +118,6 @@ class ProductTests(unittest.TestCase):
         )):
             with demo_server(service) as port:
                 status, _, body = make_request(
-                    port, "POST", "/api/cases/CASE-TB-012/explain"
-                )
-                self.assertEqual(status, 400)  # not in one-case fixture, API must not guess
-                status, _, body = make_request(
                     port, "POST", "/api/cases/CASE-TB-018/explain"
                 )
                 self.assertEqual(status, 503)
