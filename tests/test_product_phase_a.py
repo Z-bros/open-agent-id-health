@@ -67,7 +67,7 @@ class ProductTests(unittest.TestCase):
                 with self.subTest(route=route):
                     status, headers, body = make_request(port, "GET", route)
                     self.assertEqual(status, 200)
-                    self.assertIn(b"TB-CareOS" if route == "/" else b"", body)
+                    self.assertIn(b"TBCare" if route == "/" else b"", body)
                     self.assertIn("default-src 'self'", headers.get("Content-Security-Policy", ""))
             status, _, body = make_request(port, "GET", "/api/cases")
             self.assertEqual(status, 200)
