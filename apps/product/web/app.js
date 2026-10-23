@@ -1,7 +1,7 @@
 /* TB-CareOS local product MVP. Render untrusted evidence with textContent only. */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const state = { ids: [], current: null, evidence: null, generation: 0, busy: false };
+const state = { ids: [], current: null, evidence: null, generation: 0, busy: false, reviewRequestId: null };
 const SOURCE_NAMES = ["cases","screening_events","lab_orders","lab_results","followup_events"];
 const label = (name) => name.replaceAll("_"," ");
 function el(tag, className, text) {
@@ -31,6 +31,7 @@ function setLoad(active) {
   $("refresh").disabled = !state.current || active;
   $("explain").disabled = active;
   $("plan").disabled = active;
+  $("save-review").disabled = active || !state.evidence || !state.evidence.exceptions.length;
 }
 function renderList() {
   const q = $("case-search").value.trim().toLowerCase();
@@ -125,10 +126,130 @@ function renderTimeline(bundle) {
     $("timeline").append(tr);
   }
 }
+const dispositionNames = {
+  "request_source_verification":"Source verification proposed",
+  "escalate_admin_review":"Administrative escalation proposed",
+  "reviewed_unresolved":"Reviewed; unresolved",
+};
+function prepareReviewForm(bundle) {
+  $("review-form").reset();
+  $("reviewer-label").value="DEMO-REVIEWER";
+  $("review-confirm").checked=false;
+  $("review-status").textContent="";
+  state.reviewRequestId=null;
+  clear("review-finding");
+  for(const [index,issue] of bundle.exceptions.entries()){
+    const option=el("option","",String(index+1)+". "+label(issue.category)+
+      " ("+issue.evidence_record_ids.join(", ")+")");
+    option.value=String(index);
+    $("review-finding").append(option);
+  }
+  if(!bundle.exceptions.length){
+    $("review-status").textContent="No CareFlow finding available for a cited administrative review note.";
+    $("save-review").disabled=true;
+  }
+}
+function renderReviewHistory(data) {
+  clear("review-history");
+  const reviews=data.reviews || [];
+  $("stat-reviews").textContent=reviews.length?String(reviews.length):"None";
+  $("review-total").textContent=reviews.length+" events";
+  if(!reviews.length){
+    $("review-history").append(el("p","empty-history","No local notes recorded for this case."));
+    return;
+  }
+  for(const entry of [...reviews].reverse()){
+    const box=el("div","history-entry");
+    const row=el("div","history-header");
+    row.append(el("strong","",dispositionNames[entry.disposition] || "Administrative note"),
+      el("span","history-time",new Date(entry.recorded_at_utc).toLocaleString()));
+    box.append(row);
+    box.append(el("p","",entry.note));
+    box.append(el("div","history-meta","Tag: "+entry.reviewer_label+" · "+label(entry.finding_category)+
+      " · Snapshot "+entry.evidence_snapshot_sha256.slice(0,10)+"…"));
+    refs(box,entry.evidence_record_ids);
+    $("review-history").append(box);
+  }
+}
+async function loadReviewHistory(id,token){
+  try{
+    const data=await request("/api/cases/"+encodeURIComponent(id)+"/reviews");
+    if(token!==state.generation)return;
+    renderReviewHistory(data);
+  }catch(error){
+    if(token!==state.generation)return;
+    $("review-history").replaceChildren(el("p","review-error","Could not load local review history: "+error.message));
+  }
+}
+async function loadReviewActivity(){
+  try{
+    const data=await request("/api/review-activity");
+    clear("review-activity");
+    $("activity-count").textContent=data.activity.length;
+    if(!data.activity.length){
+      $("review-activity").append(el("p","", "None recorded yet"));
+      return;
+    }
+    for(const item of data.activity){
+      const btn=el("button","activity-item",item.case_id+" · "+item.recorded_notes+" notes");
+      btn.type="button";
+      btn.addEventListener("click",()=>loadCase(item.case_id));
+      $("review-activity").append(btn);
+    }
+  }catch(error){
+    $("review-activity").replaceChildren(el("p","", "Review activity unavailable"));
+  }
+}
+async function submitReview(event){
+  event.preventDefault();
+  if(!state.evidence || !state.current || state.busy || !state.evidence.exceptions.length)return;
+  if(!$("review-form").reportValidity())return;
+  const caseId=state.current;
+  const token=state.generation;
+  const index=Number($("review-finding").value);
+  const issue=state.evidence.exceptions[index];
+  if(!issue)return;
+  if(!state.reviewRequestId) state.reviewRequestId=crypto.randomUUID();
+  const draft={
+    finding_index:index,
+    finding_category:issue.category,
+    evidence_record_ids:issue.evidence_record_ids,
+    evidence_snapshot_sha256:state.evidence.evidence_snapshot_sha256,
+    reviewer_label:$("reviewer-label").value.trim(),
+    disposition:$("review-disposition").value,
+    note:$("review-note").value.trim(),
+    request_id:state.reviewRequestId,
+  };
+  setLoad(true);
+  $("review-status").textContent="Revalidating source snapshot and recording local note…";
+  try {
+    const saved=await request("/api/cases/"+encodeURIComponent(caseId)+"/reviews",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",
+        "X-TBCareOS-Review-Intent":"record-human-admin-review-v1"},
+      body:JSON.stringify(draft),
+    });
+    if(token!==state.generation)return;
+    $("review-status").textContent="Recorded "+saved.review_event_id+
+      ". This is a local administrative note, not an approval or external action.";
+    $("review-confirm").checked=false;
+    $("review-note").value="";
+    state.reviewRequestId=null;
+    await loadReviewHistory(caseId,token);
+    await loadReviewActivity();
+  }catch(error){
+    if(token!==state.generation)return;
+    $("review-status").textContent="Not recorded ["+(error.code||"request_failed")+"]: "+error.message+
+      (error.guidance?" "+error.guidance:"");
+    // Retain request ID for safe idempotent retry; changing the draft
+    // resets the ID through input/change listeners.
+  }finally{if(token===state.generation)setLoad(false);}
+}
 async function loadCase(id) {
   const token=++state.generation;
   state.current=id;
   state.evidence=null;
+  state.reviewRequestId=null;
   renderList();
   hideError();
   $("case-title").textContent=id;
@@ -149,6 +270,9 @@ async function loadCase(id) {
     renderFindings(bundle);
     renderSources(bundle);
     renderTimeline(bundle);
+    prepareReviewForm(bundle);
+    await loadReviewHistory(id,token);
+    if(token!==state.generation)return;
     $("content-empty").hidden=true;
     $("case-content").hidden=false;
     clear("explanation");clear("plan-result");
@@ -226,6 +350,11 @@ async function init(){
   $("refresh").addEventListener("click",()=>state.current&&loadCase(state.current));
   $("explain").addEventListener("click",()=>invokeAgent("explain"));
   $("plan").addEventListener("click",()=>invokeAgent("plan"));
+  $("review-form").addEventListener("submit",submitReview);
+  for(const id of ["review-finding","review-disposition","reviewer-label","review-note"]){
+    $(id).addEventListener("input",()=>{state.reviewRequestId=null;});
+    $(id).addEventListener("change",()=>{state.reviewRequestId=null;});
+  }
   try {
     const manifest=await request("/api/cases");
     state.ids=manifest.cases.map(x=>x.case_id);
@@ -233,6 +362,7 @@ async function init(){
       "Saved synthetic fixture":"Local Zetaris connector";
     $("case-count").textContent=state.ids.length;
     renderList();
+    loadReviewActivity();
     if(state.ids.includes("CASE-TB-018"))loadCase("CASE-TB-018");
   }catch(error){
     showError("Could not load the synthetic case inventory. "+error.message);
