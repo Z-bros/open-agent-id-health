@@ -7,6 +7,7 @@ const state = {
   // Source findings are remembered only for cases opened in this browser session.
   // Local reviewer notes are loaded separately; neither marks a case "resolved".
   inspected: new Map(), localNotes: new Map(), sourceMode: null,
+  activitySeen: new Map(), activityUnread: new Set(), activityPending: false,
   workflow: {
     evidence: "not_checked", explain: "not_requested", plan: "not_requested",
     reviewCount: 0, audit: "not_checked",
@@ -297,6 +298,82 @@ function renderReviewHistory(data) {
     $("review-history").append(box);
   }
 }
+const ACTIVITY_STATES = Object.freeze({
+  requested:"Requested",
+  retrieving_evidence:"Reading verified evidence",
+  waiting_for_model:"Waiting for hosted model",
+  validating:"Validating model response",
+  no_model_needed:"No model inference needed",
+  accepted:"Validated and accepted",
+  rejected:"Output rejected",
+  failed:"Operation failed",
+  stale_evidence:"Evidence changed · refresh required",
+  awaiting_human_review:"Human review required",
+  review_note_recorded:"Fictional administrative note recorded",
+});
+const ACTIVITY_OPERATIONS = Object.freeze({
+  careflow:"CareFlow", caselens:"CaseLens", nextstep:"NextStep", review:"Local review",
+});
+const IMPORTANT_ACTIVITY = new Set([
+  "accepted","rejected","failed","stale_evidence",
+  "awaiting_human_review","review_note_recorded"
+]);
+function renderAttentionCount(){
+  $("activity-unread").textContent=state.activityUnread.size+" new";
+}
+function renderActivity(data) {
+  clear("activity-feed");
+  const events=data.events || [];
+  const previous=state.activitySeen.get(data.case_id);
+  const prior = previous || new Set(events.map(e=>e.event_id));
+  const fresh=events.filter(e=>!prior.has(e.event_id));
+  state.activitySeen.set(data.case_id,new Set([...prior,...events.map(e=>e.event_id)]));
+  // Notify on new *server-stored* events only, never on client guesses.
+  for(const event of fresh) {
+    if(IMPORTANT_ACTIVITY.has(event.state)){
+      state.activityUnread.add(event.event_id);
+      $("activity-toast").textContent=
+        (ACTIVITY_OPERATIONS[event.operation]||"Agent")+" — "+
+        (ACTIVITY_STATES[event.state]||"Activity changed")+
+        " · "+data.case_id+".";
+    }
+  }
+  renderAttentionCount();
+  $("activity-status").textContent=data.total?
+    data.total+" recorded checkpoints · "+(data.truncated?"Latest 100 shown":"Current synthetic case")+
+    " · In-app only":
+    "No server activity recorded for this case.";
+  for(const event of [...events].reverse().slice(0,16)){
+    const div=el("div","activity-entry");
+    div.dataset.state=event.state;
+    const head=el("div","activity-entry-head");
+    head.append(
+      el("strong","",ACTIVITY_OPERATIONS[event.operation]||"Application"),
+      el("span","",ACTIVITY_STATES[event.state]||"Observed event")
+    );
+    div.append(head);
+    div.append(el("div","activity-entry-time",timeString(event.occurred_at_utc)));
+    $("activity-feed").append(div);
+  }
+  if(!events.length)$("activity-feed").append(
+    el("p","activity-none","A future request will appear after the server actually receives it.")
+  );
+}
+async function refreshActivity(caseId,token){
+  if(state.activityPending || !caseId)return;
+  state.activityPending=true;
+  try{
+    const response=await request("/api/cases/"+encodeURIComponent(caseId)+"/activity");
+    if(token!==state.generation || state.current!==caseId)return;
+    renderActivity(response);
+  }catch(error){
+    if(token!==state.generation || state.current!==caseId)return;
+    $("activity-status").textContent="Activity history unavailable ["+
+      (error.code||"request_failed")+"]; progress cannot be verified.";
+  }finally{
+    state.activityPending=false;
+  }
+}
 async function loadReviewHistory(id,token){
   try{
     const data=await request("/api/cases/"+encodeURIComponent(id)+"/reviews");
@@ -367,6 +444,7 @@ async function submitReview(event){
     state.reviewRequestId=null;
     await loadReviewHistory(caseId,token);
     await loadReviewActivity();
+    refreshActivity(caseId,token);
   }catch(error){
     if(token!==state.generation)return;
     $("review-status").textContent="Not recorded ["+(error.code||"request_failed")+"]: "+error.message+
@@ -421,6 +499,10 @@ async function loadMeterlessAudit(id,token) {
 async function loadCase(id) {
   const token=++state.generation;
   state.current=id;
+  state.activityUnread.clear();
+  renderAttentionCount();
+  $("activity-status").textContent="Reading server-observed activity…";
+  clear("activity-feed");
   state.evidence=null;
   state.reviewRequestId=null;
   resetWorkflow();
@@ -464,6 +546,7 @@ async function loadCase(id) {
     $("content-empty").hidden=true;
     loadMeterlessAudit(id,token);
     $("case-content").hidden=false;
+    refreshActivity(id,token);
     clear("explanation");clear("plan-result");
     $("explain-status").textContent="Not requested";
     $("plan-status").textContent="Not requested";
@@ -588,6 +671,7 @@ async function invokeAgent(kind) {
     $(statusId).dataset.state="accepted";
     state.workflow[kind==="explain"?"explain":"plan"]=noFinding?"no_findings":"accepted";
     renderJourney();
+    refreshActivity(caseId,token);
   } catch(error){
     if(token!==state.generation)return;
     if(error.code==="evidence_snapshot_changed"){
@@ -605,10 +689,12 @@ async function invokeAgent(kind) {
       $("plan-status").dataset.state="rejected";
       showError("Evidence changed since this case was opened. Refresh evidence before another agent request or local review note.");
       renderJourney();
+      refreshActivity(caseId,token);
       return;
     }
     $(statusId).textContent="Not accepted · "+String(error.code || "request_failed");
     renderAgentFailure(kind,error);
+    refreshActivity(caseId,token);
     $(statusId).dataset.state="rejected";
     state.workflow[kind==="explain"?"explain":"plan"]="rejected";
     renderJourney();
@@ -616,6 +702,17 @@ async function invokeAgent(kind) {
 }
 async function init(){
   $("case-search").addEventListener("input",renderList);
+  $("activity-mark-seen").addEventListener("click",()=>{
+    state.activityUnread.clear();
+    renderAttentionCount();
+    $("activity-toast").textContent="Recent in-app activity marked noticed.";
+  });
+  // Poll only while the browser is open and visible. This is not a worker
+  // or a subscription that delivers after the tab/server closes.
+  window.setInterval(()=>{
+    if(document.visibilityState==="visible" && state.current)
+      refreshActivity(state.current,state.generation);
+  },2000);
   document.querySelectorAll("[data-demo-case]").forEach(btn=>btn.addEventListener("click",()=>{
     if(state.ids.includes(btn.dataset.demoCase))loadCase(btn.dataset.demoCase);
   }));
