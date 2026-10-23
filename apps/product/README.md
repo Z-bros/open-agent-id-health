@@ -1,12 +1,13 @@
 # TB-CareOS product phase A — interactive local case explorer
 
-**First product surface, built 22 October 2026.** This is a REAL browser
-application backed by the existing tested Python agents, not the static
-E06 HTML report. Its scope is deliberately limited to a safe product slice:
-interactive fabricated case selection, evidence retrieval/timeline, CareFlow
-findings with clickable business ID citations and **explicit** NVIDIA Nemotron
-CaseLens and NextStep actions. Review decisions and an interactive Meterless
-audit browser are still **NOT IMPLEMENTED** and are visibly labeled as such.
+**Interactive product, first built 22 October 2026; Phase B added 23 October.**
+This is a real browser application backed by the tested Python agents, not the
+static E06 report. Its current features include fabricated case selection,
+evidence timeline and citations, opt-in NVIDIA CaseLens/NextStep actions,
+**explicit local administrative reviewer notes** and local note history.
+The interactive Meterless audit-event browser is **NOT IMPLEMENTED** (Phase C).
+Reviewer notes do **not** imply verified reviewer identity, official case
+approval, source verification, or an escalation delivered to staff.
 
 The app binds ONLY to 127.0.0.1. It uses Python's standard-library HTTP
 server and self-hosted HTML/CSS/JavaScript, with no required Python/Node
@@ -137,3 +138,83 @@ Offline output is not represented as a Nemotron answer.
   browser, and additional three-case usability validation.
 
 See docs/product-mvp-roadmap.md for the required full product journey.
+
+## Phase B: explicit human administrative review notes (23 Oct 2026)
+
+This branch extends Product A with a **local, append-only review ledger**
+at outputs/reviews/ (configurable via --review-dir). Reviewers may choose
+only a retrieved CareFlow finding, add a fictional DEMO-* reviewer label,
+choose an explicitly limited administrative disposition and enter a short
+neutral note. A checkbox confirms that this is **not** a case approval.
+
+Permitted local-only dispositions:
+- request_source_verification — propose checking existing evidence
+- escalate_admin_review — flag an administrative escalation in the local log
+- reviewed_unresolved — document unresolved administrative review
+
+These are **not clinical outcomes, completed source checks, genuine human
+authorization, or official registry updates**. There is no login; the
+fictional reviewer tag is self-asserted and human identity is not verified.
+Do NOT use real names, phone numbers, email addresses or patient details.
+
+### Review demo in WSL2
+
+    git fetch origin
+    git switch --track origin/feat/product-phase-b-human-review
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --port 8765
+
+Open http://localhost:8765/ and choose CASE-TB-018. Scroll to
+**Administrative human-review notes**, choose a cited finding, select a
+disposition, keep the fictional tag DEMO-REVIEWER, type a neutral note,
+check the explicit acknowledgment and click **Record local review note**.
+Confirm a new entry appears with a real UTC timestamp and linked evidence
+IDs. Reopen the app to confirm that local history persists.
+
+The synthetic-only fixture works without a Zetaris service; submitting
+review notes does not require NVIDIA inference:
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --fixture tests/fixtures/tb_case_018_bundle.json \
+      --review-dir outputs/reviews \
+      --port 8765
+
+If this branch cannot be checked out due to local edits, stash only the
+conflicting files first (do not force checkout or discard edits).
+
+### API and safety guarantees
+
+- GET /api/cases/CASE-TB-018/evidence returns the regular evidence bundle
+  plus a server-generated evidence_snapshot_sha256. This hash commits to
+  the exact synthetic evidence available during the UI read.
+- GET /api/cases/CASE-TB-018/reviews reads only already-recorded local notes.
+- GET /api/review-activity shows **only cases with saved local notes**, never
+  infers whether other cases were reviewed.
+- POST /api/cases/CASE-TB-018/reviews requires same-origin browser,
+  application/json, an explicit X-TBCareOS-Review-Intent header, bounded
+  JSON, selected finding and exact citation IDs, a matching refreshed
+  evidence snapshot hash, fictional reviewer label, allowed disposition,
+  neutral note, and a UUID v4 retry key.
+- A changed evidence snapshot is rejected with HTTP 409 so the reviewer
+  must refresh. Reusing the same request ID and exact content returns
+  the original event rather than appending a duplicate.
+- Local notes are written as case-scoped JSONL with owner-only file
+  permissions (Windows mount filesystem permission semantics may differ),
+  O_APPEND, fsync, Linux file locking, and corruption detection.
+- The server remains bound to 127.0.0.1 and checks the Host header.
+  Review submissions also require an Origin matching the server. This
+  is a **localhost demo**, not a deployment-ready authentication scheme.
+- No Zetaris writes, no patient contact, no NextStep query execution,
+  no real identity verification, no auto-approval, and no clinical assertions.
+- The local review history is currently **separate from Meterless**.
+  Product Phase C must implement the actual Meterless audit-event browser
+  and, if desired, an explicit bridge for validated human review notes.
+
+Only synthetic records are permitted, and held-out evaluation labels
+must never enter the app or agent prompts.

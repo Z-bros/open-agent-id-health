@@ -17,6 +17,8 @@ from urllib.parse import urlsplit
 from apps.careflow.reconcile import reconcile_case
 from apps.caselens.explain import CaseLensValidationError, _context, describe_case
 from apps.nextstep.plan import NextStepValidationError, plan_case
+from apps.product.review_store import (ReviewStore, ReviewValidationError,
+                                       ReviewConflictError, snapshot_digest)
 from shared.inference.nemotron import NVIDIAChatClient, NemotronError
 from shared.zetaris.readonly import ZetarisHelperClient, ZetarisQueryError
 
@@ -33,7 +35,8 @@ STATIC = {
 
 class ProductService:
     def __init__(self, *, helper: str | None, namespace: str = "TBCARE_OS",
-                 fixture: Path | None = None, model: str = MODEL):
+                 fixture: Path | None = None, model: str = MODEL,
+                 review_dir: str | Path = "outputs/reviews"):
         if fixture is None and not helper:
             raise ValueError("Provide --helper or --fixture")
         if fixture is not None and helper:
@@ -42,6 +45,7 @@ class ProductService:
         self.helper = ZetarisHelperClient(helper) if helper else None
         self.namespace = namespace
         self.model = model
+        self.reviews_store = ReviewStore(review_dir)
 
     def list_cases(self) -> dict:
         """Advertise known synthetic IDs, NOT source availability/triage status."""
@@ -74,6 +78,30 @@ class ProductService:
     def plan(self, case_id: str) -> dict:
         evidence = self.evidence(case_id)
         return plan_case(evidence, model_client=NVIDIAChatClient(model=self.model))
+
+    def evidence_response(self, case_id: str) -> dict:
+        bundle = self.evidence(case_id)
+        return {**bundle, "evidence_snapshot_sha256": snapshot_digest(bundle)}
+
+    def review_history(self, case_id: str) -> dict:
+        return {
+            "case_id": case_id,
+            "reviews": self.reviews_store.history(case_id),
+            "identity_verified": False,
+            "official_action_taken": False,
+        }
+
+    def review_activity(self) -> dict:
+        return {
+            "activity": self.reviews_store.activity(),
+            "note": "Only cases with locally recorded notes. Unchecked cases are not inferred to be reviewed or cleared.",
+        }
+
+    def record_review(self, case_id: str, draft: dict) -> dict:
+        # Reconcile source again before persisting; the UI-provided snapshot
+        # must still match. No client claims are treated as source evidence.
+        bundle = self.evidence(case_id)
+        return self.reviews_store.record(bundle, draft)
 
 
 def public_failure(exc: Exception) -> tuple[int, str, str, str]:
@@ -113,6 +141,14 @@ def public_failure(exc: Exception) -> tuple[int, str, str, str]:
         return (422, "nvidia_incomplete_response",
                 "NVIDIA returned an empty, incomplete or unsupported model response.",
                 "Try again. No unsupported output was accepted.")
+    if isinstance(exc, ReviewConflictError):
+        return (409, "review_conflict",
+                "The evidence changed or a review request ID was reused.",
+                "Refresh case evidence and review history before recording a new note.")
+    if isinstance(exc, ReviewValidationError):
+        return (422, "review_validation_rejected",
+                "The review note, citation or disposition failed local validation.",
+                "Use the selected finding, a fictional DEMO-* reviewer tag and a neutral administrative note.")
     if isinstance(exc, (CaseLensValidationError, NextStepValidationError)):
         return (422, "agent_validation_rejected",
                 "The output failed evidence-grounding or bounded-action validation.",
@@ -145,9 +181,9 @@ def make_handler(service: ProductService):
             self.end_headers()
             self.wfile.write(body)
 
-        def _safe_action(self, action):
+        def _safe_action(self, action, *, success_status: int = 200):
             try:
-                self._respond(200, action())
+                self._respond(success_status, action())
             except (ValueError, TypeError, KeyError, RuntimeError, OSError,
                     json.JSONDecodeError) as exc:
                 status, code, message, next_step = public_failure(exc)
@@ -157,7 +193,36 @@ def make_handler(service: ProductService):
                     "next_step": next_step,
                 })
 
+        def _trusted_host(self) -> bool:
+            # Binding loopback is insufficient against DNS rebinding if
+            # Host is never checked. Deny other hostnames explicitly.
+            port = self.server.server_address[1]
+            return self.headers.get("Host", "") in (
+                f"127.0.0.1:{port}", f"localhost:{port}"
+            )
+
+        def _review_body(self) -> dict:
+            if self.headers.get("X-TBCareOS-Review-Intent") != "record-human-admin-review-v1":
+                raise ReviewValidationError("Explicit review-intent header required")
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+                raise ReviewValidationError("Review requires JSON content type")
+            if self.headers.get("Transfer-Encoding"):
+                raise ReviewValidationError("Chunked review bodies unsupported")
+            value = self.headers.get("Content-Length", "")
+            if not value.isdecimal() or not 1 <= int(value) <= 4096:
+                raise ReviewValidationError("Review JSON request must be 1–4096 bytes")
+            try:
+                obj = json.loads(self.rfile.read(int(value)))
+            except (ValueError, UnicodeError) as exc:
+                raise ReviewValidationError("Invalid review request JSON") from exc
+            if not isinstance(obj, dict):
+                raise ReviewValidationError("Review request must be a JSON object")
+            return obj
+
         def do_GET(self):
+            if not self._trusted_host():
+                self._respond(403, {"error": "Only localhost requests are permitted"})
+                return
             path = urlsplit(self.path).path
             if path in STATIC:
                 file_name, media_type = STATIC[path]
@@ -177,24 +242,52 @@ def make_handler(service: ProductService):
             if path == "/api/cases":
                 self._respond(200, service.list_cases())
                 return
+            if path == "/api/review-activity":
+                self._safe_action(service.review_activity)
+                return
+            review_match = re.fullmatch(
+                r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/reviews", path
+            )
+            if review_match:
+                self._safe_action(lambda: service.review_history(review_match.group(1)))
+                return
             match = re.fullmatch(r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/evidence", path)
             if match:
-                self._safe_action(lambda: service.evidence(match.group(1)))
+                self._safe_action(lambda: service.evidence_response(match.group(1)))
                 return
             self._respond(404, {"error": "Unknown API route"})
 
         def do_POST(self):
+            if not self._trusted_host():
+                self._respond(403, {"error": "Only localhost requests are permitted"})
+                return
             path = urlsplit(self.path).path
             origin = self.headers.get("Origin")
             host = self.headers.get("Host", "")
-            # Browser pages are served by this same app. Disallow cross-site
-            # request forgery and cross-origin browser model invocations.
             allowed_origin = f"http://{host}"
             if origin and origin != allowed_origin:
                 self._respond(403, {"error": "Cross-origin request rejected"})
                 return
+            review_match = re.fullmatch(
+                r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/reviews", path
+            )
+            if review_match:
+                # A custom header requires a CORS preflight for cross-origin
+                # JavaScript; this server never enables CORS.
+                if origin != allowed_origin:
+                    self._respond(403, {"error": "Review writes require the same-origin browser"})
+                    return
+                case_id = review_match.group(1)
+                if not CASE_RE.fullmatch(case_id):
+                    self._respond(400, {"error": "Only indexed fabricated cases permitted"})
+                    return
+                self._safe_action(
+                    lambda: service.record_review(case_id, self._review_body()),
+                    success_status=201,
+                )
+                return
             if self.headers.get("Content-Length", "0") != "0":
-                self._respond(400, {"error": "This endpoint accepts no request body"})
+                self._respond(400, {"error": "This agent endpoint accepts no body"})
                 return
             match = re.fullmatch(r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/(explain|plan)", path)
             if not match:
@@ -229,13 +322,16 @@ def main(argv: list[str] | None = None) -> int:
                       help="One saved synthetic bundle for offline UI demo")
     parser.add_argument("--namespace", default="TBCARE_OS")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--review-dir", type=Path, default=Path("outputs/reviews"),
+                        help="Local append-only synthetic administrative review notes")
     parser.add_argument("--model", default=os.getenv("NEMOTRON_MODEL", MODEL))
     args = parser.parse_args(argv)
     if not 1024 <= args.port <= 65535:
         parser.error("--port must be 1024–65535")
     service = ProductService(
         helper=args.helper, namespace=args.namespace,
-        fixture=args.fixture, model=args.model
+        fixture=args.fixture, model=args.model,
+        review_dir=args.review_dir,
     )
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), make_handler(service))
