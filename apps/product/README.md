@@ -363,3 +363,64 @@ Suggested check sequence:
 Screenshot verification in the participant's actual WSL browser is
 pending; automated CI includes Python product API tests, UI DOM contract
 checks and JavaScript syntax checking when Node.js is available.
+
+
+## Phase E — CaseLens reliability and failure UX (23 October 2026)
+
+The participant verified that CaseLens sometimes failed for CASE-TB-009
+(`nvidia_incomplete_response`) and CASE-TB-018
+(`agent_validation_rejected`) while independently invoked NextStep
+returned validated bounded proposals. This phase improves the product without
+pretending that the rejected model responses were successful.
+
+- CaseLens now explicitly requests supported NVIDIA Nemotron JSON mode
+  (`response_format: {type: json_object}`); Lightning thinking stays off.
+  This is **provider formatting assistance**, not a validation bypass.
+  The exact JSON schema, required source citations, synthetic subjects,
+  human review, and nonclinical text constraints are still enforced by
+  the local CaseLens critic.
+- NextStep requests are unchanged; no prompts or action policies are modified.
+- Unfinished, invalid JSON, or unsupported provider responses fail closed.
+  If the hosted endpoint rejects JSON mode, the UI reports a provider error;
+  it does **not** silently downgrade to unstructured text or substitute an
+  invented explanation.
+- Known CaseLens validation failures now return only human-authored,
+  allowlisted error codes such as `caselens_structure`,
+  `caselens_missing_citation`, and `caselens_unretrieved_citation`;
+  never raw model text, unrelated record data, or credentials.
+- The agent panel now displays a concise **No explanation accepted** card
+  with **View retrieved findings** and an **explicit retry** button. A retry
+  only occurs when the user clicks; there is no automatic second inference.
+  Access-denied/key-missing failures suppress the misleading retry button.
+- Independent NextStep acceptance is retained and never counted as a
+  fully completed explanation-plus-plan investigation.
+- Agent cards no longer force the failed left column to have the full
+  height of a long successful NextStep plan.
+
+### Run and verify in WSL2
+
+    git fetch origin
+    git switch --track origin/feat/product-phase-e-caselens-reliability-ui
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+
+Start the product using the same local helper and existing state:
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless \
+      --port 8765
+
+Hard-refresh http://localhost:8765/ and inspect CASE-TB-009 and
+CASE-TB-018. Click CaseLens **once**, then optionally retry *explicitly*
+only if the first response is rejected. Confirm a failure remains a
+failure and NextStep never claims that CaseLens succeeded.
+
+Provider-side JSON mode compatibility and improved live success rate
+**are not verified by CI**. The offline tests check JSON request shape,
+strict transport parsing, safe diagnostic codes, unchanged plain-mode
+NextStep transport, and explicit recovery UX. Real acceptance must
+be confirmed in the participant's browser without sharing API tokens.
