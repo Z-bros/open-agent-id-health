@@ -106,3 +106,63 @@ style dependencies or provider badges resembling accreditation.
 
 This is a design/system readability improvement, **not** a production-ready
 healthcare implementation or authorized national-system integration.
+
+
+## Enterprise public-health workbench refinement — 23 Oct evening
+
+The current workbench now follows the user-specified accessible health
+administration constraints beyond the initial color refresh:
+
+- **No wellness-app patterns:** no hero images, gradients, neon outlines,
+  dark default surfaces, decorative 3D elements, or consumer CTA banners.
+- **Density:** narrower navigator; abbreviated topbar and scenario selectors;
+  record status immediately beside the case identifier; compact source,
+  findings, event, agent and review rows rather than oversized KPI cards.
+- **Legibility:** prefer local \`Public Sans\` if available, with native humanist
+  \`Segoe UI\` fallback; **no remote fonts or external font requests**.
+  No copyrighted or government font files are copied into this repository.
+  Font family will vary across operating systems until an appropriately
+  licensed, self-hosted font is packaged and validated.
+- **Status semantics:** a single server-grounded case status can read
+  \`Not checked\`, \`Reading source records\`, \`Source read unavailable\`,
+  \`Partial source access\`, \`Discrepancy · Review required\`,
+  \`Discrepancy · Note recorded\`, \`Evidence outdated · Refresh\`, or
+  \`No rule-based flags in checked records\`. Statuses use **solid,
+  desaturated** amber, red, information, or neutral backgrounds with
+  labels. Human-review note recorded is **never official closure**.
+- **Color/contrast:** semantic foreground-background pairs are unit-tested
+  against WCAG 2.1 AA 4.5:1 minimum for normal text, including action,
+  body, neutral, warning, error and retrieved-source labels. Last-layer
+  theme overrides also restore darker secondary text. This does not
+  replace a browser-level full-screen computed-style accessibility audit.
+- **Keyboard:** all case items remain native buttons; Up/Down/Home/End
+  move focus without triggering queries; Enter/Space activates a case.
+  The list has visible keyboard instructions and explicit 3-pixel
+  \`:focus-visible\` outlines. There is also the existing skip-to-investigation
+  link, explicit button busy states and accessible status announcements.
+- **Literal administrative language:** no invented blood types, clinical
+  diagnoses, electronic medical record availability, live FHIR log entries,
+  actual \`Nomor IHS\`, SATUSEHAT integration or successful national
+  registry writes. The interface explicitly discloses **SIMULATED DATA —
+  NOT FOR CLINICAL USE**. Real response semantics are still bound to the
+  existing synthetic source contracts.
+
+### Indonesian localization boundary
+
+The copy is deliberately literal and terminology-focused, but **the
+current interactive interface remains English**. An Indonesian
+translation needs to cover navigation, status, error messages, form labels
+and assistive descriptions consistently—not only decorative headings.
+Model-generated reasoning should not be silently translated into a claim
+of official Indonesian medical terminology. A full \`id-ID\` locale or
+language switch is **future scope**; don't advertise bilingual functionality
+in this build.
+
+### Acceptance scope
+
+In addition to prior tests, \`tests/test_product_workbench_ux.py\`
+checks semantic WCAG contrast pair ratios, authorized synthetic
+status words, case-list keyboard behavior, plain-language copy and
+absence of invented clinical/FHIR fields. A local browser screenshot
+and keyboard-only workflow test are still required before accepting
+the visual redesign for the final submission.
