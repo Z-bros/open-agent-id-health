@@ -92,6 +92,35 @@ function navigateSection(sectionId) {
   target.setAttribute("tabindex","-1");
   target.focus({ preventScroll:true });
 }
+function renderCaseStatus() {
+  const status=$("case-status");
+  const wf=state.workflow;
+  if(!status)return;
+  let code="not_checked";
+  let message="Not checked";
+  if(wf.evidence==="loading"){
+    code="loading"; message="Reading source records";
+  }else if(wf.evidence==="failed"){
+    code="failed"; message="Source read unavailable";
+  }else if(wf.evidence==="stale"){
+    code="stale"; message="Evidence outdated · Refresh";
+  }else if(wf.evidence==="retrieved" && state.evidence){
+    const impaired=state.evidence.source_checks.some(check=>
+      !["available","not_found"].includes(check.status));
+    if(impaired){
+      code="limited"; message="Partial source access";
+    }else if(state.evidence.exceptions.length){
+      code="attention"; message=wf.reviewCount>0?
+        "Discrepancy · Note recorded":"Discrepancy · Review required";
+    }else{
+      code="neutral"; message="No rule-based flags in checked records";
+    }
+  }
+  // Only server-provided evidence can determine source/finding status.
+  status.dataset.state=code;
+  status.textContent=message;
+}
+
 function renderJourney() {
   const wf=state.workflow;
   const hasEvidence=wf.evidence==="retrieved";
@@ -173,6 +202,7 @@ function renderJourney() {
     );
     control.classList.toggle("needs-review",needsReview);
   });
+  renderCaseStatus();
 }
 function resetWorkflow(){
   state.workflow={
@@ -215,6 +245,7 @@ function renderList() {
     btn.setAttribute("aria-label",id+": "+(inspected?
       inspected.findings+" finding(s) observed in session":"sources not checked in session")+
       (noteCount?", "+noteCount+" local notes":""));
+    btn.setAttribute("aria-controls","case-content");
     btn.addEventListener("click",() => loadCase(id));
     $("case-list").append(btn);
   }
@@ -795,6 +826,20 @@ async function invokeAgent(kind) {
 }
 async function init(){
   $("case-search").addEventListener("input",renderList);
+  $("case-list").addEventListener("keydown",(event)=>{
+    const current=event.target.closest("button");
+    if(!current || !$("case-list").contains(current))return;
+    if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;
+    const choices=[...$("case-list").querySelectorAll("button:not([disabled])")];
+    const index=choices.indexOf(current);
+    if(index<0)return;
+    const next=event.key==="Home"?0:event.key==="End"?choices.length-1:
+      (index+(event.key==="ArrowDown"?1:-1)+choices.length)%choices.length;
+    event.preventDefault();
+    choices[next].focus();
+    // Moving keyboard focus NEVER triggers an evidence query.
+    // Enter/Space activates the focused native button explicitly.
+  });
   $("activity-mark-seen").addEventListener("click",()=>{
     state.activityUnread.clear();
     renderAttentionCount();
