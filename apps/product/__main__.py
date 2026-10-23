@@ -15,10 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 from apps.careflow.reconcile import reconcile_case
-from apps.caselens.explain import _context, describe_case
-from apps.nextstep.plan import plan_case
-from shared.inference.nemotron import NVIDIAChatClient
-from shared.zetaris.readonly import ZetarisHelperClient
+from apps.caselens.explain import CaseLensValidationError, _context, describe_case
+from apps.nextstep.plan import NextStepValidationError, plan_case
+from shared.inference.nemotron import NVIDIAChatClient, NemotronError
+from shared.zetaris.readonly import ZetarisHelperClient, ZetarisQueryError
 
 ROOT = Path(__file__).resolve().parent
 CASE_RE = re.compile(r"^CASE-TB-(?:00[1-9]|0[12][0-9]|03[0-6])$")
@@ -76,6 +76,60 @@ class ProductService:
         return plan_case(evidence, model_client=NVIDIAChatClient(model=self.model))
 
 
+def public_failure(exc: Exception) -> tuple[int, str, str, str]:
+    """Safe, human-authored failure diagnostics only; never raw provider text."""
+    if isinstance(exc, NemotronError):
+        description = str(exc)
+        if description.startswith("NVIDIA_API_KEY not set"):
+            return (503, "nvidia_key_missing",
+                    "NVIDIA_API_KEY is not available to this server process.",
+                    "Set NVIDIA_API_KEY privately in the WSL shell launching the app, then restart the server.")
+        match = re.search(r"NVIDIA API HTTP (\d{3})", description)
+        if match:
+            status = int(match.group(1))
+            if status in (401, 403):
+                return (503, "nvidia_access_denied",
+                        f"NVIDIA rejected model access (HTTP {status}).",
+                        "Check your key, model access, and NVIDIA Build credits.")
+            if status == 404:
+                return (503, "nvidia_model_unavailable",
+                        "NVIDIA did not find the requested model (HTTP 404).",
+                        "Confirm the exact model ID and availability in NVIDIA Build.")
+            if status == 429:
+                return (503, "nvidia_rate_limited",
+                        "NVIDIA rate-limited the model request (HTTP 429).",
+                        "Retry later or check the provider quota.")
+            return (503, "nvidia_provider_error",
+                    f"NVIDIA could not complete the request (HTTP {status}).",
+                    "Check provider status, model access, and network availability.")
+        if "timed out" in description:
+            return (503, "nvidia_timeout",
+                    "NVIDIA did not complete the request before its configured timeout.",
+                    "Retry if provider latency improves.")
+        if "connection failed" in description:
+            return (503, "nvidia_network_error",
+                    "The local server could not connect to NVIDIA.",
+                    "Check network connectivity and DNS/TLS from WSL.")
+        return (422, "nvidia_incomplete_response",
+                "NVIDIA returned an empty, incomplete or unsupported model response.",
+                "Try again. No unsupported output was accepted.")
+    if isinstance(exc, (CaseLensValidationError, NextStepValidationError)):
+        return (422, "agent_validation_rejected",
+                "The output failed evidence-grounding or bounded-action validation.",
+                "Run the same case in the relevant CaseLens/NextStep CLI for a safe validator diagnostic.")
+    if isinstance(exc, ZetarisQueryError):
+        return (503, "zetaris_query_unavailable",
+                "The read-only synthetic source query could not be completed.",
+                "Check the local Zetaris service and query helper; do not infer missing care.")
+    if isinstance(exc, (ValueError, TypeError, KeyError, json.JSONDecodeError)):
+        return (422, "invalid_synthetic_evidence",
+                "The evidence or request did not pass validation.",
+                "Check the selected synthetic case and source availability.")
+    return (500, "unexpected_internal_error",
+            "The local application encountered an unexpected error.",
+            "Inspect the local application setup without publishing secrets.")
+
+
 def make_handler(service: ProductService):
     class Handler(BaseHTTPRequestHandler):
         server_version = "TB-CareOSLocal/0.1"
@@ -96,12 +150,11 @@ def make_handler(service: ProductService):
                 self._respond(200, action())
             except (ValueError, TypeError, KeyError, RuntimeError, OSError,
                     json.JSONDecodeError) as exc:
-                # Provider/source exceptions may contain sensitive payloads.
-                # Surface a generic failure, not raw token-bearing logs.
-                self._respond(422, {
-                    "error": "The request failed validation or an external source/model call failed.",
-                    "error_type": type(exc).__name__,
-                    "next_step": "Inspect local server diagnostics privately; do not interpret source failure as missing care.",
+                status, code, message, next_step = public_failure(exc)
+                self._respond(status, {
+                    "error": message,
+                    "error_code": code,
+                    "next_step": next_step,
                 })
 
         def do_GET(self):
