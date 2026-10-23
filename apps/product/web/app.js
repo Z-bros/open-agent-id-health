@@ -536,7 +536,7 @@ function renderAgentFailure(kind, error) {
     "The requested hosted inference could not be verified.";
   card.append(el("p","agent-failure-summary",description));
   card.append(el("p","agent-failure-context",
-    "The source evidence remains available. No unsupported model result was accepted. No substitute result was generated, and no verification query was executed."));
+    "The source evidence remains available. No unsupported model result was accepted. No substitute result was generated. No verification query was executed."));
   const support=el("p","agent-failure-guidance");
   support.textContent=error.guidance || "Review the source-linked findings before deciding whether to retry.";
   card.append(support);
