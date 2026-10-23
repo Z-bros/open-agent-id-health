@@ -275,3 +275,91 @@ unavailable, the panel reports this explicitly.
   not every semantically meaningless note.
 - This is a localhost synthetic demo, not an authenticated production
   care-management product.
+
+
+## Phase D — guided investigation UX (23 October 2026)
+
+This iteration makes the existing read-only product workflow easier to follow
+for a first-time hackathon judge, without introducing new source integrations
+or changing the CaseLens/NextStep model validators.
+
+**New interactive affordances**
+
+- Three *optional* synthetic demonstration shortcuts for CASE-TB-001,
+  CASE-TB-009 and CASE-TB-018. Clicking one retrieves actual evidence;
+  the scenario label does **not** insert canned results or run AI.
+- A four-step journey: (1) inspect source evidence, (2) explicitly request
+  agents, (3) record a fictional local administrative note, (4) inspect
+  genuine read-only Meterless history.
+- The **Continue** button only scrolls/focuses the relevant existing
+  section. It does not invoke an agent, save a review, or run a query.
+- Source results in the sidebar are displayed only for cases opened in the
+  **current browser session**. Unvisited cases stay **Not checked**, even
+  if that case had a finding in an earlier test report. Persisted local note
+  badges are loaded separately and do not mean a case was approved.
+- The journey separates an accepted AI result from a rejected one and
+  a genuine Meterless audit from missing/unavailable persisted history.
+  NextStep can succeed independently even when CaseLens fails; **both**
+  must succeed for a fully validated explanation-and-plan demonstration.
+- No-finding cases correctly show when no hosted model call was needed
+  rather than falsely claiming a successful hosted inference.
+- Keyboard navigation includes a skip link, focusable investigation
+  sections, and live status messages; responsive mobile layouts are
+  improved. Source text still renders only through textContent.
+
+**Snapshot protection:** The browser sends the server-generated
+SHA256 evidence snapshot identifier on each explicit CaseLens/NextStep
+request. The server independently re-queries evidence and compares
+hashes **before** invoking Nemotron. A mismatch returns HTTP 409
+`evidence_snapshot_changed` and asks the participant to
+refresh evidence. Existing displayed agent outputs are invalidated and
+the old case's session badge is marked stale. This avoids presenting
+AI results from a newly queried source beside an outdated evidence
+timeline. The review-note POST already has its own evidence hash check.
+
+**Important:** This does not implement user authentication, official
+administrative approvals, a human escalation delivery, an integration
+between local review notes and Meterless, or model fallback/retry that
+silently bypasses validation. No artificial clinical state is inferred.
+
+### Browser acceptance
+
+From the repository root in Ubuntu WSL2:
+
+    git fetch origin
+    git switch --track origin/feat/product-phase-d-guided-workspace
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+
+Start the same existing app:
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless \
+      --port 8765
+
+Open http://localhost:8765/ and hard-refresh the browser.
+
+Suggested check sequence:
+
+1. The three optional scenario cards appear at the top. Select CASE-TB-009
+   and verify the case source checks/findings reflect actual Zetaris queries.
+2. A previously unvisited case in the sidebar says **Not checked**. After
+   selecting it, the sidebar shows the actual observed finding count for
+   that session (not a judge-defined ground-truth label).
+3. Click a journey stage: it scrolls to the corresponding section and
+   does **not** trigger a provider call.
+4. Generate CaseLens/NextStep explicitly on CASE-TB-018. Accepted outputs
+   are marked accepted. A rejected response displays a safe diagnostic
+   and does **not** become a completed step or a substitute explanation.
+5. Record a neutral, fictional DEMO-* review note only after explicit
+   acknowledgment (optional); confirm it appears in local history.
+6. Verify the Meterless event viewer displays only genuine persisted
+   event counts or the explicit unavailable/empty state.
+
+Screenshot verification in the participant's actual WSL browser is
+pending; automated CI includes Python product API tests, UI DOM contract
+checks and JavaScript syntax checking when Node.js is available.

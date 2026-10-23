@@ -1,7 +1,17 @@
 /* TB-CareOS local product MVP. Render untrusted evidence with textContent only. */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const state = { ids: [], current: null, evidence: null, generation: 0, busy: false, reviewRequestId: null };
+const state = {
+  ids: [], current: null, evidence: null, generation: 0, busy: false,
+  reviewRequestId: null,
+  // Source findings are remembered only for cases opened in this browser session.
+  // Local reviewer notes are loaded separately; neither marks a case "resolved".
+  inspected: new Map(), localNotes: new Map(), sourceMode: null,
+  workflow: {
+    evidence: "not_checked", explain: "not_requested", plan: "not_requested",
+    reviewCount: 0, audit: "not_checked",
+  },
+};
 const SOURCE_NAMES = ["cases","screening_events","lab_orders","lab_results","followup_events"];
 const label = (name) => name.replaceAll("_"," ");
 function el(tag, className, text) {
@@ -29,14 +39,106 @@ async function request(path, opts) {
 function setLoad(active) {
   state.busy = active;
   $("refresh").disabled = !state.current || active;
-  $("explain").disabled = active;
-  $("plan").disabled = active;
-  $("save-review").disabled = active || !state.evidence || !state.evidence.exceptions.length;
+  $("explain").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved";
+  $("plan").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved";
+  $("save-review").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved" || !state.evidence.exceptions.length;
+}
+function navigateSection(sectionId) {
+  if (!state.evidence) return;
+  const target=$(sectionId);
+  if (!target || target.hidden) return;
+  target.scrollIntoView({ behavior:"smooth", block:"start" });
+  target.setAttribute("tabindex","-1");
+  target.focus({ preventScroll:true });
+}
+function renderJourney() {
+  const wf=state.workflow;
+  const hasEvidence=wf.evidence==="retrieved";
+  const noFindings=hasEvidence && state.evidence.exceptions.length===0;
+  const explanationReady=wf.explain==="accepted" || wf.explain==="no_findings";
+  const planReady=wf.plan==="accepted";
+  const agentRejected=wf.explain==="rejected" || wf.plan==="rejected";
+  const anyRunning=wf.explain==="running" || wf.plan==="running";
+
+  const impaired=hasEvidence && state.evidence.source_checks.some(check=>
+    !["available","not_found"].includes(check.status));
+  $("step-evidence").textContent=wf.evidence==="retrieved"?
+    (impaired?"Partial source access":"Source checks retrieved"):wf.evidence==="loading"?"Retrieving…":
+    wf.evidence==="failed"?"Source read failed":wf.evidence==="stale"?"Outdated snapshot":"Not checked";
+  $("step-agents").textContent=agentRejected?"Rejected output · manual review":
+    anyRunning?"Generating…":explanationReady && planReady?"Both accepted":
+    (explanationReady||planReady)?"Partially generated":"Not requested";
+  $("step-review").textContent=noFindings?"No cited finding to annotate":
+    wf.reviewCount<0?"History unavailable":
+    wf.reviewCount>0?wf.reviewCount+" local note"+(wf.reviewCount===1?"":"s"):"No local note";
+  $("step-audit").textContent=wf.audit==="available"?"Persisted events viewed":
+    wf.audit==="empty"?"No archived events":wf.audit==="unavailable"?
+    "Unavailable · no substitute":wf.audit==="loading"?"Reading…":"Not checked";
+
+  for(const control of document.querySelectorAll("[data-journey-target]")){
+    control.disabled=!hasEvidence;
+  }
+  const button=$("journey-continue");
+  button.disabled=!hasEvidence;
+  let target="agent-investigation";
+  let labelText="Go to agent tools →";
+  let summary="Evidence retrieved. Agents are optional and require explicit clicks.";
+  if (!hasEvidence){
+    summary=wf.evidence==="stale"?"Evidence changed since retrieval. Refresh before requesting agents or recording notes.":
+      wf.evidence==="failed"?
+      "Source validation failed. Refresh evidence before attempting AI or recording notes.":
+      wf.evidence==="loading"?"Retrieving and validating this synthetic case…":
+      "Choose a case to retrieve real synthetic source evidence. No model request runs automatically.";
+    labelText=wf.evidence==="stale"?"Refresh evidence first":"Choose a case";
+  }else if(agentRejected){
+    summary="An AI output was rejected. It was not accepted as evidence or a completed investigation; retry only deliberately.";
+    labelText="Inspect agent failure →";
+  }else if (anyRunning){
+    summary="A hosted model request is running. No proposed source checks are being executed.";
+    labelText="Inspect agent progress →";
+  }else if (!explanationReady || !planReady){
+    summary=impaired?
+      "At least one source query was unavailable. Treat document absence as unknown; agent output cannot certify a complete snapshot.":
+      noFindings?
+      "No rule-based discrepancy was found in this source snapshot; this does not establish completeness. You can inspect the bounded no-finding agent path.":
+      "CareFlow findings are ready. Ask CaseLens and NextStep explicitly; their results are independently validated.";
+  }else if (!noFindings && wf.reviewCount===0){
+    target="review-panel";
+    labelText="Go to local review →";
+    summary="Both agent outputs were accepted. You can write a fictional, non-clinical note against a cited CareFlow finding.";
+  }else{
+    target="meterless-audit";
+    labelText="Inspect event history →";
+    summary=wf.reviewCount>0?
+      "Local note recorded, not an approval. The Meterless event history is a separate read-only store.":
+      wf.reviewCount<0?"Review history could not be verified. Inspect locally, then view the separate Meterless audit.":
+      "No finding is available for a cited local note. Inspect genuine archived events, if previously persisted.";
+  }
+  $("journey-summary").textContent=summary;
+  button.textContent=labelText;
+  button.dataset.target=target;
+  document.querySelectorAll(".journey-step").forEach((control)=>{
+    control.classList.toggle("is-ready",hasEvidence);
+    let active=false;
+    if(control.dataset.journeyTarget==="findings-card")active=hasEvidence;
+    if(control.dataset.journeyTarget==="agent-investigation")active=explanationReady || planReady;
+    if(control.dataset.journeyTarget==="review-panel")active=wf.reviewCount>0;
+    if(control.dataset.journeyTarget==="meterless-audit")active=wf.audit==="available";
+    control.classList.toggle("is-done",active);
+  });
+}
+function resetWorkflow(){
+  state.workflow={
+    evidence:"loading", explain:"not_requested", plan:"not_requested",
+    reviewCount:0, audit:"not_checked",
+  };
+  renderJourney();
 }
 function renderList() {
   const q = $("case-search").value.trim().toLowerCase();
   const matches = state.ids.filter((x) => x.toLowerCase().includes(q));
   clear("case-list");
+  $("case-count").textContent=String(matches.length)+"/"+String(state.ids.length);
   if (!matches.length) {
     $("case-list").append(el("p","loading-list","No matching synthetic case IDs"));
     return;
@@ -45,7 +147,27 @@ function renderList() {
     const btn = el("button",state.current === id ? "active" : "");
     btn.type = "button";
     btn.setAttribute("aria-current",state.current === id ? "page" : "false");
-    btn.append(el("span","",id), el("span","case-mark"));
+    const inspected=state.inspected.get(id);
+    const noteCount=state.localNotes.get(id) || 0;
+    const right=el("span","case-summary");
+    if(inspected){
+      if(inspected.stale){
+        right.append(el("span","case-label uninspected","Stale · refresh"));
+      }else{
+      right.append(el("span",inspected.findings?"case-label flagged":"case-label inspected",
+        inspected.findings?inspected.findings+" finding"+(inspected.findings===1?"":"s"):
+        inspected.impaired?"Partial read":"Read"));
+      if(inspected.impaired && inspected.findings)
+        right.append(el("span","case-label uninspected","Partial"));
+      }
+    }else{
+      right.append(el("span","case-label uninspected","Not checked"));
+    }
+    if(noteCount)right.append(el("span","note-mark","Note "+noteCount));
+    btn.append(el("span","case-id",id),right);
+    btn.setAttribute("aria-label",id+": "+(inspected?
+      inspected.findings+" finding(s) observed in session":"sources not checked in session")+
+      (noteCount?", "+noteCount+" local notes":""));
     btn.addEventListener("click",() => loadCase(id));
     $("case-list").append(btn);
   }
@@ -153,6 +275,10 @@ function renderReviewHistory(data) {
   clear("review-history");
   const reviews=data.reviews || [];
   $("stat-reviews").textContent=reviews.length?String(reviews.length):"None";
+  state.workflow.reviewCount=reviews.length;
+  state.localNotes.set(state.current,reviews.length);
+  renderJourney();
+  renderList();
   $("review-total").textContent=reviews.length+" events";
   if(!reviews.length){
     $("review-history").append(el("p","empty-history","No local notes recorded for this case."));
@@ -179,6 +305,8 @@ async function loadReviewHistory(id,token){
   }catch(error){
     if(token!==state.generation)return;
     $("review-history").replaceChildren(el("p","review-error","Could not load local review history: "+error.message));
+    state.workflow.reviewCount=-1;
+    renderJourney();
   }
 }
 async function loadReviewActivity(){
@@ -186,6 +314,8 @@ async function loadReviewActivity(){
     const data=await request("/api/review-activity");
     clear("review-activity");
     $("activity-count").textContent=data.activity.length;
+    for(const item of data.activity)state.localNotes.set(item.case_id,item.recorded_notes);
+    renderList();
     if(!data.activity.length){
       $("review-activity").append(el("p","", "None recorded yet"));
       return;
@@ -202,7 +332,7 @@ async function loadReviewActivity(){
 }
 async function submitReview(event){
   event.preventDefault();
-  if(!state.evidence || !state.current || state.busy || !state.evidence.exceptions.length)return;
+  if(!state.evidence || !state.current || state.busy || state.workflow.evidence!=="retrieved" || !state.evidence.exceptions.length)return;
   if(!$("review-form").reportValidity())return;
   const caseId=state.current;
   const token=state.generation;
@@ -269,17 +399,23 @@ function renderAuditReport(report) {
 }
 async function loadMeterlessAudit(id,token) {
   $("audit-body").hidden=true;
+  state.workflow.audit="loading";
+  renderJourney();
   $("audit-status").textContent="Reading actual local Meterless event history…";
   try {
     const data=await request("/api/cases/"+encodeURIComponent(id)+"/audit");
     if(token!==state.generation)return;
     renderAuditReport(data);
+    state.workflow.audit=data.has_persisted_events?"available":"empty";
+    renderJourney();
   }catch(error){
     if(token!==state.generation)return;
     $("audit-status").textContent="Audit unavailable ["+(error.code||"request_failed")+
       "]: "+error.message+(error.guidance?" "+error.guidance:"")+
       " No events have been invented.";
     $("audit-body").hidden=true;
+    state.workflow.audit="unavailable";
+    renderJourney();
   }
 }
 async function loadCase(id) {
@@ -287,7 +423,13 @@ async function loadCase(id) {
   state.current=id;
   state.evidence=null;
   state.reviewRequestId=null;
+  resetWorkflow();
   renderList();
+  document.querySelectorAll("[data-demo-case]").forEach(btn=>{
+    const selected=btn.dataset.demoCase===id;
+    btn.classList.toggle("active",selected);
+    btn.setAttribute("aria-pressed",String(selected));
+  });
   hideError();
   $("case-title").textContent=id;
   $("crumb-case").textContent=id;
@@ -300,6 +442,15 @@ async function loadCase(id) {
     const bundle=await request("/api/cases/"+encodeURIComponent(id)+"/evidence");
     if(token!==state.generation)return;
     state.evidence=bundle;
+    state.workflow.evidence="retrieved";
+    state.workflow.reviewCount=-1;
+    const impaired=bundle.source_checks.some(check=>
+      !["available","not_found"].includes(check.status));
+    state.inspected.set(id,{
+      findings:bundle.exceptions.length, observations:bundle.observations.length, impaired
+    });
+    renderJourney();
+    renderList();
     $("case-subtitle").textContent="Synthetic administrative case · Source observations and bounded review";
     $("stat-evidence").textContent=bundle.observations.length;
     $("stat-checks").textContent=bundle.source_checks.length;
@@ -316,11 +467,15 @@ async function loadCase(id) {
     clear("explanation");clear("plan-result");
     $("explain-status").textContent="Not requested";
     $("plan-status").textContent="Not requested";
+    $("explain-status").dataset.state="idle";
+    $("plan-status").dataset.state="idle";
   } catch(error) {
     if(token!==state.generation)return;
     showError("Evidence retrieval failed. "+error.message+" Do not interpret this as missing care.");
     $("content-empty").replaceChildren(el("p","", "Source evidence could not be verified."));
     $("case-subtitle").textContent="Retrieval unsuccessful";
+    state.workflow.evidence="failed";
+    renderJourney();
   } finally {
     if(token===state.generation)setLoad(false);
   }
@@ -360,7 +515,7 @@ function renderPlan(report) {
   }
 }
 async function invokeAgent(kind) {
-  if(!state.current || !state.evidence || state.busy)return;
+  if(!state.current || !state.evidence || state.busy || state.workflow.evidence!=="retrieved")return;
   const caseId=state.current;
   const token=state.generation;
   const statusId=kind==="explain"?"explain-status":"plan-status";
@@ -368,23 +523,60 @@ async function invokeAgent(kind) {
   const containerId=kind==="explain"?"explanation":"plan-result";
   clear(containerId);
   $(statusId).textContent="Running "+actionName+" with hosted Nemotron…";
+  $(statusId).dataset.state="running";
+  state.workflow[kind==="explain"?"explain":"plan"]="running";
+  renderJourney();
   setLoad(true);
   try{
     const result=await request("/api/cases/"+encodeURIComponent(caseId)+"/"+kind,
-      {method:"POST"});
+      {method:"POST",headers:{"X-TBCareOS-Evidence-SHA256":state.evidence.evidence_snapshot_sha256}});
     if(token!==state.generation)return;
     if(kind==="explain")renderExplanation(result);
     else renderPlan(result);
-    $(statusId).textContent="Completed · Human review required";
+    const noFinding=kind==="explain" && result.hypotheses.length===0;
+    const noPlanModel=kind==="plan" && state.evidence.exceptions.length===0;
+    $(statusId).textContent=noFinding?
+      "No CareFlow finding · no model call required · human review remains":
+      noPlanModel?"Bounded review/stop plan · no model call required":
+      "Accepted · Bounded agent output · Human review required";
+    $(statusId).dataset.state="accepted";
+    state.workflow[kind==="explain"?"explain":"plan"]=noFinding?"no_findings":"accepted";
+    renderJourney();
   } catch(error){
     if(token!==state.generation)return;
-    $(statusId).textContent="Failed ["+(error.code || "request_failed")+"] · "+error.message+
+    if(error.code==="evidence_snapshot_changed"){
+      // Both agent outputs are invalidated for the old evidence snapshot.
+      state.workflow.evidence="stale";
+      const inspected=state.inspected.get(caseId);
+      if(inspected)inspected.stale=true;
+      renderList();
+      state.workflow.explain="not_requested";
+      state.workflow.plan="not_requested";
+      clear("explanation");clear("plan-result");
+      $("explain-status").textContent="Outdated source snapshot · refresh evidence";
+      $("plan-status").textContent="Outdated source snapshot · refresh evidence";
+      $("explain-status").dataset.state="rejected";
+      $("plan-status").dataset.state="rejected";
+      showError("Evidence changed since this case was opened. Refresh evidence before another agent request or local review note.");
+      renderJourney();
+      return;
+    }
+    $(statusId).textContent="Rejected or failed ["+(error.code || "request_failed")+"] · "+error.message+
       (error.guidance ? " "+error.guidance : "")+" No substitute result was generated.";
-    $(containerId).append(el("p","", "The model/source invocation failed. No outcome can be inferred."));
+    $(containerId).append(el("p","", "No AI explanation or plan was accepted. You may deliberately retry this action; the verified CareFlow evidence remains available."));
+    $(statusId).dataset.state="rejected";
+    state.workflow[kind==="explain"?"explain":"plan"]="rejected";
+    renderJourney();
   } finally { if(token===state.generation)setLoad(false); }
 }
 async function init(){
   $("case-search").addEventListener("input",renderList);
+  document.querySelectorAll("[data-demo-case]").forEach(btn=>btn.addEventListener("click",()=>{
+    if(state.ids.includes(btn.dataset.demoCase))loadCase(btn.dataset.demoCase);
+  }));
+  document.querySelectorAll("[data-journey-target]").forEach(btn=>btn.addEventListener("click",()=>navigateSection(btn.dataset.journeyTarget)));
+  $("journey-continue").addEventListener("click",()=>navigateSection($("journey-continue").dataset.target));
+  renderJourney();
   $("refresh").addEventListener("click",()=>state.current&&loadCase(state.current));
   $("explain").addEventListener("click",()=>invokeAgent("explain"));
   $("plan").addEventListener("click",()=>invokeAgent("plan"));
@@ -397,6 +589,11 @@ async function init(){
   try {
     const manifest=await request("/api/cases");
     state.ids=manifest.cases.map(x=>x.case_id);
+    state.sourceMode=manifest.source_mode;
+    document.querySelectorAll("[data-demo-case]").forEach(btn=>{
+      btn.disabled=!state.ids.includes(btn.dataset.demoCase);
+      btn.title=btn.disabled?"Not available in this demo mode":"Retrieve this synthetic case";
+    });
     $("source-mode").textContent=manifest.source_mode==="saved_fixture"?
       "Saved synthetic fixture":"Local Zetaris connector";
     $("case-count").textContent=state.ids.length;

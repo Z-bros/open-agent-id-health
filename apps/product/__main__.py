@@ -34,6 +34,10 @@ STATIC = {
 }
 
 
+class EvidenceSnapshotChanged(RuntimeError):
+    """Browser and re-retrieved source evidence no longer match."""
+
+
 class ProductService:
     def __init__(self, *, helper: str | None, namespace: str = "TBCARE_OS",
                  fixture: Path | None = None, model: str = MODEL,
@@ -78,12 +82,21 @@ class ProductService:
         _context(b)
         return b
 
-    def explain(self, case_id: str) -> dict:
+    def _agent_evidence(self, case_id: str, expected_snapshot: str | None) -> dict:
         evidence = self.evidence(case_id)
+        if expected_snapshot is not None:
+            if not re.fullmatch(r"[0-9a-f]{64}", expected_snapshot):
+                raise ValueError("Invalid bounded evidence snapshot hash")
+            if snapshot_digest(evidence) != expected_snapshot:
+                raise EvidenceSnapshotChanged("Source evidence changed since the browser read")
+        return evidence
+
+    def explain(self, case_id: str, expected_snapshot: str | None = None) -> dict:
+        evidence = self._agent_evidence(case_id, expected_snapshot)
         return describe_case(evidence, NVIDIAChatClient(model=self.model))
 
-    def plan(self, case_id: str) -> dict:
-        evidence = self.evidence(case_id)
+    def plan(self, case_id: str, expected_snapshot: str | None = None) -> dict:
+        evidence = self._agent_evidence(case_id, expected_snapshot)
         return plan_case(evidence, model_client=NVIDIAChatClient(model=self.model))
 
     def evidence_response(self, case_id: str) -> dict:
@@ -153,6 +166,10 @@ def public_failure(exc: Exception) -> tuple[int, str, str, str]:
         return (422, "nvidia_incomplete_response",
                 "NVIDIA returned an empty, incomplete or unsupported model response.",
                 "Try again. No unsupported output was accepted.")
+    if isinstance(exc, EvidenceSnapshotChanged):
+        return (409, "evidence_snapshot_changed",
+                "The source evidence changed since this case was opened.",
+                "Refresh the case evidence before trying the agent again. No model request was made.")
     if isinstance(exc, AuditReadError):
         return (503, "meterless_audit_unavailable",
                 "No readable validated Meterless event history is available for this case.",
@@ -319,8 +336,20 @@ def make_handler(service: ProductService):
             if not CASE_RE.fullmatch(case_id):
                 self._respond(400, {"error": "Only the synthetic 36-case ID list is allowed"})
                 return
-            self._safe_action(lambda: service.explain(case_id) if method == "explain"
-                              else service.plan(case_id))
+            expected_snapshot = self.headers.get("X-TBCareOS-Evidence-SHA256")
+            if expected_snapshot is None:
+                # Preserve the original local API/CLI contract for callers
+                # that did not provide a browser evidence snapshot.
+                self._safe_action(
+                    lambda: service.explain(case_id) if method == "explain"
+                    else service.plan(case_id)
+                )
+            else:
+                self._safe_action(
+                    lambda: service.explain(case_id, expected_snapshot=expected_snapshot)
+                    if method == "explain"
+                    else service.plan(case_id, expected_snapshot=expected_snapshot)
+                )
 
         def do_PUT(self):
             self._respond(405, {"error": "No source mutations or clinical writes permitted"})
