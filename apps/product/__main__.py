@@ -20,6 +20,8 @@ from apps.nextstep.plan import NextStepValidationError, plan_case
 from apps.product.review_store import (ReviewStore, ReviewValidationError,
                                        ReviewConflictError, snapshot_digest)
 from apps.product.audit_reader import MeterlessAuditReader, AuditReadError
+from apps.product.activity_store import ActivityStore, ActivityLogError
+import uuid
 from shared.inference.nemotron import NVIDIAChatClient, NemotronError
 from shared.zetaris.readonly import ZetarisHelperClient, ZetarisQueryError
 
@@ -38,12 +40,29 @@ class EvidenceSnapshotChanged(RuntimeError):
     """Browser and re-retrieved source evidence no longer match."""
 
 
+class _ObservedModel:
+    """Only logs real provider-call boundaries, never internal reasoning."""
+
+    def __init__(self, delegate, progress):
+        self.delegate = delegate
+        self.progress = progress
+        self.called = False
+
+    def complete(self, messages):
+        self.called = True
+        self.progress("waiting_for_model")
+        output = self.delegate.complete(messages)
+        self.progress("validating")
+        return output
+
+
 class ProductService:
     def __init__(self, *, helper: str | None, namespace: str = "TBCARE_OS",
                  fixture: Path | None = None, model: str = MODEL,
                  review_dir: str | Path = "outputs/reviews",
                  meterless_reference: str | Path | None = None,
-                 meterless_state_dir: str | Path = "outputs/meterless"):
+                 meterless_state_dir: str | Path = "outputs/meterless",
+                 activity_dir: str | Path = "outputs/activities"):
         if fixture is None and not helper:
             raise ValueError("Provide --helper or --fixture")
         if fixture is not None and helper:
@@ -53,6 +72,7 @@ class ProductService:
         self.namespace = namespace
         self.model = model
         self.reviews_store = ReviewStore(review_dir)
+        self.activities = ActivityStore(activity_dir)
         self.audit_reader = MeterlessAuditReader(
             meterless_reference or Path.home() / "Meterless/engines/world-model/reference",
             meterless_state_dir,
@@ -91,15 +111,27 @@ class ProductService:
                 raise EvidenceSnapshotChanged("Source evidence changed since the browser read")
         return evidence
 
-    def explain(self, case_id: str, expected_snapshot: str | None = None) -> dict:
+    def explain(self, case_id: str, expected_snapshot: str | None = None, *, progress=None) -> dict:
+        if progress:
+            progress("retrieving_evidence")
         evidence = self._agent_evidence(case_id, expected_snapshot)
-        return describe_case(
-            evidence, NVIDIAChatClient(model=self.model, json_output=True, temperature=0.0)
-        )
+        client = NVIDIAChatClient(model=self.model, json_output=True, temperature=0.0)
+        model = _ObservedModel(client, progress) if progress else client
+        result = describe_case(evidence, model)
+        if progress and not model.called:
+            progress("no_model_needed")
+        return result
 
-    def plan(self, case_id: str, expected_snapshot: str | None = None) -> dict:
+    def plan(self, case_id: str, expected_snapshot: str | None = None, *, progress=None) -> dict:
+        if progress:
+            progress("retrieving_evidence")
         evidence = self._agent_evidence(case_id, expected_snapshot)
-        return plan_case(evidence, model_client=NVIDIAChatClient(model=self.model))
+        client = NVIDIAChatClient(model=self.model)
+        model = _ObservedModel(client, progress) if progress else client
+        result = plan_case(evidence, model_client=model)
+        if progress and not model.called:
+            progress("no_model_needed")
+        return result
 
     def evidence_response(self, case_id: str) -> dict:
         bundle = self.evidence(case_id)
@@ -128,7 +160,13 @@ class ProductService:
         # Reconcile source again before persisting; the UI-provided snapshot
         # must still match. No client claims are treated as source evidence.
         bundle = self.evidence(case_id)
-        return self.reviews_store.record(bundle, draft)
+        note = self.reviews_store.record(bundle, draft)
+        self.activities.append(case_id, "review", "review_note_recorded",
+                               run_id=note["request_id"])
+        return note
+
+    def activity_history(self, case_id: str) -> dict:
+        return self.activities.history(case_id)
 
 
 def public_failure(exc: Exception) -> tuple[int, str, str, str]:
@@ -172,6 +210,10 @@ def public_failure(exc: Exception) -> tuple[int, str, str, str]:
         return (409, "evidence_snapshot_changed",
                 "The source evidence changed since this case was opened.",
                 "Refresh the case evidence before trying the agent again. No model request was made.")
+    if isinstance(exc, ActivityLogError):
+        return (503, "local_activity_unavailable",
+                "Local activity history could not be recorded or read safely.",
+                "Check the local activity directory and permissions; do not infer missing events.")
     if isinstance(exc, AuditReadError):
         return (503, "meterless_audit_unavailable",
                 "No readable validated Meterless event history is available for this case.",
@@ -264,6 +306,28 @@ def make_handler(service: ProductService):
                     "next_step": next_step,
                 })
 
+        def _tracked_action(self, case_id, operation, action):
+            """Record only actually reached server-side steps, no raw content."""
+            run_id = str(uuid.uuid4())
+            service.activities.append(case_id, operation, "requested", run_id=run_id)
+            def progress(state):
+                service.activities.append(case_id, operation, state, run_id=run_id)
+            try:
+                result = action(progress)
+                progress("accepted")
+                if operation in ("caselens", "nextstep") and result.get("requires_human_approval"):
+                    progress("awaiting_human_review")
+                return result
+            except Exception as exc:
+                _, code, _, _ = public_failure(exc)
+                state = ("stale_evidence" if isinstance(exc, EvidenceSnapshotChanged) else
+                         "rejected" if isinstance(exc, (CaseLensValidationError, NextStepValidationError)) else
+                         "failed")
+                progress(state if state in ("rejected", "failed", "stale_evidence") else "failed")
+                # Ensure failure code is safely sourced from local mappings.
+                # Failures stay visible in HTTP responses, never silent success.
+                raise
+
         def _trusted_host(self) -> bool:
             # Binding loopback is insufficient against DNS rebinding if
             # Host is never checked. Deny other hostnames explicitly.
@@ -313,6 +377,12 @@ def make_handler(service: ProductService):
             if path == "/api/cases":
                 self._respond(200, service.list_cases())
                 return
+            activity_match = re.fullmatch(
+                r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/activity", path
+            )
+            if activity_match:
+                self._safe_action(lambda: service.activity_history(activity_match.group(1)))
+                return
             if path == "/api/review-activity":
                 self._safe_action(service.review_activity)
                 return
@@ -330,7 +400,14 @@ def make_handler(service: ProductService):
                 return
             match = re.fullmatch(r"/api/cases/(CASE-TB-[A-Za-z0-9-]+)/evidence", path)
             if match:
-                self._safe_action(lambda: service.evidence_response(match.group(1)))
+                case_id = match.group(1)
+                if not CASE_RE.fullmatch(case_id):
+                    self._respond(400, {"error": "Only indexed synthetic cases permitted"})
+                    return
+                self._safe_action(lambda: self._tracked_action(
+                    case_id, "careflow", lambda progress: (
+                        progress("retrieving_evidence"), service.evidence_response(case_id)
+                    )[1]))
                 return
             self._respond(404, {"error": "Unknown API route"})
 
@@ -384,9 +461,16 @@ def make_handler(service: ProductService):
                 )
             else:
                 self._safe_action(
-                    lambda: service.explain(case_id, expected_snapshot=expected_snapshot)
-                    if method == "explain"
-                    else service.plan(case_id, expected_snapshot=expected_snapshot)
+                    lambda: self._tracked_action(
+                        case_id, "caselens" if method == "explain" else "nextstep",
+                        lambda progress: service.explain(
+                            case_id, expected_snapshot=expected_snapshot,
+                            progress=progress,
+                        ) if method == "explain" else service.plan(
+                            case_id, expected_snapshot=expected_snapshot,
+                            progress=progress,
+                        ),
+                    )
                 )
 
         def do_PUT(self):
@@ -418,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Local upstream Meterless World Model reference checkout")
     parser.add_argument("--meterless-state-dir", type=Path, default=Path("outputs/meterless"),
                         help="Local previously ingested Meterless state; audit GET never ingests")
+    parser.add_argument("--activity-dir", type=Path, default=Path("outputs/activities"),
+                        help="Local-only server-observed activity history, separate from Meterless")
     parser.add_argument("--model", default=os.getenv("NEMOTRON_MODEL", MODEL))
     args = parser.parse_args(argv)
     if not 1024 <= args.port <= 65535:
@@ -428,6 +514,7 @@ def main(argv: list[str] | None = None) -> int:
         review_dir=args.review_dir,
         meterless_reference=args.meterless_reference,
         meterless_state_dir=args.meterless_state_dir,
+        activity_dir=args.activity_dir,
     )
     host = "127.0.0.1"
     server = ThreadingHTTPServer((host, args.port), make_handler(service))
