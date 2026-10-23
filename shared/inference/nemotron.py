@@ -34,7 +34,7 @@ class NVIDIAChatClient:
 
     def __init__(self, *, api_key: str | None = None,
                  model: str | None = None, timeout_seconds: int | None = None,
-                 json_output: bool = False):
+                 json_output: bool = False, temperature: float = 0.2):
         self.api_key = api_key if api_key is not None else os.environ.get("NVIDIA_API_KEY", "")
         self.model = model or os.environ.get("NEMOTRON_MODEL", DEFAULT_MODEL)
         if not _MODEL_NAME.fullmatch(self.model):
@@ -49,6 +49,9 @@ class NVIDIAChatClient:
         if type(json_output) is not bool:
             raise ValueError("json_output must be an explicit boolean")
         self.json_output = json_output
+        if isinstance(temperature, bool) or not isinstance(temperature, (float, int)) or not 0 <= temperature <= 1:
+            raise ValueError("Nemotron temperature must be a number between 0 and 1")
+        self.temperature = float(temperature)
 
     def complete(self, messages: list[dict[str, str]]) -> str:
         if not self.api_key:
@@ -63,7 +66,7 @@ class NVIDIAChatClient:
             "model": self.model,
             "messages": messages,
             "max_tokens": 1600,
-            "temperature": 0.2,
+            "temperature": self.temperature,
             "stream": False,
         }
         # Request provider JSON mode only when a caller explicitly requires
