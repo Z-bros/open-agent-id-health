@@ -218,3 +218,60 @@ conflicting files first (do not force checkout or discard edits).
 
 Only synthetic records are permitted, and held-out evaluation labels
 must never enter the app or agent prompts.
+
+## Phase C: real Meterless World Model event browser (23 Oct 2026)
+
+The case detail page now includes a **Meterless World Model audit** section.
+It reads actual previously persisted local World Model history through the
+separately installed upstream reference. Opening this section does not
+invoke WorldModel.ingest(), execute a NextStep plan, or invent sample events.
+
+The read-only API is GET /api/cases/{case_id}/audit, backed by the
+apps/product/audit_reader.py adapter and the upstream WorldModel events()
+and audit() accessors via scripts/meterless-audit-reader.mts. The UI
+shows bounded event IDs, event kinds, event times, and actual persistence
+counts. Source audit internals may contain arbitrary text, so the browser
+receives only sanitized genuine event metadata.
+
+### WSL2 walkthrough
+
+Stop the old server with Ctrl+C and switch to Phase C:
+
+    git fetch origin
+    git switch --track origin/feat/product-phase-c-meterless-audit
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+
+Launch, pointing at the existing E08 state (no re-ingest required):
+
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless \
+      --port 8765
+
+Open http://localhost:8765/ and select CASE-TB-018. Scroll down to
+**Meterless World Model audit**. A previously ingested case should show
+persisted evt_... event IDs and actual event/audit counts. The UI must
+not show invented events for cases never ingested. If Meterless is
+unavailable, the panel reports this explicitly.
+
+### Honest audit semantics
+
+- Meterless event times derive from fabricated evidence snapshots.
+  They are **not** real inference or human-review submission times.
+- Local reviewer notes have real UTC submission timestamps, but they
+  remain in a separate local JSONL ledger; do not claim they are
+  Meterless events.
+- WorldModel event kinds such as upsertEntity and relate are genuine
+  internal event types, NOT one-to-one feature labels for the three
+  AI agents, nor proof a planned source query was executed.
+- The panel shows a bounded recent event index, not all internal
+  upstream event or audit text.
+- Reviewer notes now require at least four words, plus the existing
+  safety and length checks. This catches simple placeholder gibberish,
+  not every semantically meaningless note.
+- This is a localhost synthetic demo, not an authenticated production
+  care-management product.
