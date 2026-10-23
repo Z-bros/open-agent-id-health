@@ -245,6 +245,43 @@ async function submitReview(event){
     // resets the ID through input/change listeners.
   }finally{if(token===state.generation)setLoad(false);}
 }
+function renderAuditReport(report) {
+  $("audit-status").textContent=report.has_persisted_events?
+    "Verified local Meterless World Model event index · "+report.namespace:
+    "No previously archived Meterless event history for this case.";
+  $("audit-body").hidden=!report.has_persisted_events;
+  $("audit-event-count").textContent=String(report.event_count);
+  $("audit-entry-count").textContent=String(report.audit_count);
+  $("audit-visible-count").textContent=String(report.events.length);
+  clear("audit-event-list");
+  if(!report.has_persisted_events)return;
+  for(const event of [...report.events].reverse()){
+    const card=el("div","audit-event");
+    const row=el("div","audit-event-head");
+    row.append(el("span","audit-event-id",event.event_id),
+      el("span","audit-event-kind",event.event_type));
+    card.append(row,el("div","audit-event-date",timeString(event.event_at)));
+    $("audit-event-list").append(card);
+  }
+  $("audit-truncation").textContent=report.truncated?
+    "Showing the latest "+report.events.length+" of "+report.event_count+" persisted events.":
+    "All "+report.event_count+" persisted events are displayed. No follow-up source queries or reviewer actions were executed by this audit viewer.";
+}
+async function loadMeterlessAudit(id,token) {
+  $("audit-body").hidden=true;
+  $("audit-status").textContent="Reading actual local Meterless event history…";
+  try {
+    const data=await request("/api/cases/"+encodeURIComponent(id)+"/audit");
+    if(token!==state.generation)return;
+    renderAuditReport(data);
+  }catch(error){
+    if(token!==state.generation)return;
+    $("audit-status").textContent="Audit unavailable ["+(error.code||"request_failed")+
+      "]: "+error.message+(error.guidance?" "+error.guidance:"")+
+      " No events have been invented.";
+    $("audit-body").hidden=true;
+  }
+}
 async function loadCase(id) {
   const token=++state.generation;
   state.current=id;
@@ -274,6 +311,7 @@ async function loadCase(id) {
     await loadReviewHistory(id,token);
     if(token!==state.generation)return;
     $("content-empty").hidden=true;
+    loadMeterlessAudit(id,token);
     $("case-content").hidden=false;
     clear("explanation");clear("plan-result");
     $("explain-status").textContent="Not requested";
@@ -351,6 +389,7 @@ async function init(){
   $("explain").addEventListener("click",()=>invokeAgent("explain"));
   $("plan").addEventListener("click",()=>invokeAgent("plan"));
   $("review-form").addEventListener("submit",submitReview);
+  $("reload-audit").addEventListener("click",()=>state.current && loadMeterlessAudit(state.current,state.generation));
   for(const id of ["review-finding","review-disposition","reviewer-label","review-note"]){
     $(id).addEventListener("input",()=>{state.reviewRequestId=null;});
     $(id).addEventListener("change",()=>{state.reviewRequestId=null;});
