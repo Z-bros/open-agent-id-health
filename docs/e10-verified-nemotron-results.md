@@ -57,6 +57,61 @@ broad reliability from such a small sample.
 - **Demo:** prioritize validated successful CASE-TB-001, 009, 018.
   Explicitly demonstrate fail-closed behavior on a rejected output.
 
+
+## Targeted repeat on the failing two cases — 23 October 2026
+
+Participant reran `CASE-TB-002` and `CASE-TB-007` twice each on
+retrieved and validated synthetic evidence.
+
+| Metric | Observed |
+|---|---:|
+| Cases with validated source reads | 2/2 |
+| Hosted model calls | 8 |
+| All accepted calls | 6/8 (75%) |
+| CaseLens accepted | 2/4 (50%) |
+| NextStep accepted | 4/4 (100% in this small repeat) |
+| Full linked chain accepted | 2/4 trials |
+| Provider/model failures | 2 |
+| Source writes / follow-up queries executed | 0 / 0 |
+
+CASE-TB-002 succeeded for both CaseLens and NextStep **in both trials**,
+recovering from its initial CaseLens failure. CASE-TB-007 failed CaseLens
+in **both** trials, while NextStep independently passed in both. The
+precise CaseLens rejection category was
+`caselens_unretrieved_citation`. This means the model explanation
+contained a record-shaped identifier outside the retrieved evidence
+allowlist; it does not establish whether the model hallucinated one or
+simply repeated an unresolved source link.
+
+### Safety-preserving prompt mitigation (implemented; real rerun pending)
+
+The CaseLens prompt previously exposed raw link-target IDs from source
+metadata under `evidence[].links`, even when no record for that ID was
+retrieved. In an administrative cross-source mismatch, a dangling
+`order_id` or `result_id` may thus be echoed by the model as if
+it were a cited retrieved event. That is a plausible explanation for
+the CASE-TB-007 failure, **not proven from the result JSON alone**.
+
+We have now changed CaseLens prompt construction to include only
+`retrieved_links` with target IDs already observed in the evidence,
+and `unretrieved_link_fields` naming dangling fields **without their
+unretrieved target values**. The model is explicitly told to describe
+the field-level mismatch without inventing or echoing unreturned IDs.
+The strict record/subject citation validator and mandatory human
+approval remain unchanged.
+
+Regression tests verify that an unmatched target ID is absent from
+the model input, that a synthetic explanation citing the unreturned
+target still **fails closed**, and that existing subject-mismatch
+citations still work. Both GitHub CI suites passed on the prompt
+mitigation commit. **No claim of improved live CASE-TB-007 reliability
+until the participant reruns the hosted model.**
+
+Next recommended live check: `CASE-TB-007` with `--repeats 2`,
+at most four hosted model calls. Inspect the new safe error categories
+and linked-chain metric. Keep the original failure counts in the
+submission evaluation appendix as pre-mitigation results.
+
 ## Evidence scope and limitations
 
 E09 tested 36/36 deterministic source/citation/workflow contracts and made
