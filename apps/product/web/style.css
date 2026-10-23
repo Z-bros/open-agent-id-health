@@ -161,3 +161,38 @@
 .activity-disclosure{background:#f8fafc;border-top:1px solid #e8edf3;padding:12px 22px;font-size:10px;line-height:1.6;color:#8494a5;margin:0}
 @media(max-width:840px){.activity-feed{grid-template-columns:1fr}}
 @media(max-width:700px){.activity-heading{padding:15px;flex-direction:column;align-items:stretch}.activity-controls{justify-content:space-between}.activity-status{padding:0 15px 10px}.activity-feed{padding:0 15px 14px}.activity-disclosure{padding:12px 15px}}
+
+
+/* TBCare Product G.1 — button-level observed progress and caution-first status */
+.agent .button[data-phase="requested"],
+.agent .button[data-phase="retrieving_evidence"],
+.agent .button[data-phase="waiting_for_model"],
+.agent .button[data-phase="validating"]{
+  background:#345e88;border-color:#345e88;color:#fff;display:inline-flex;
+  align-items:center;justify-content:center;gap:9px;min-height:40px;
+  cursor:progress;opacity:1;
+}
+.agent .button[data-phase="requested"]::before,
+.agent .button[data-phase="retrieving_evidence"]::before,
+.agent .button[data-phase="waiting_for_model"]::before,
+.agent .button[data-phase="validating"]::before{
+  content:"";width:13px;height:13px;flex:none;border-radius:50%;
+  border:2px solid #b5d3ed;border-top-color:#fff;animation:tbcare-spin .9s linear infinite;
+}
+.agent .button[data-phase="accepted"]{background:#f7f9fc;color:#365d7e;border:1px solid #a9c1d8}
+.agent .button[data-phase="accepted"]:hover:not(:disabled){background:#eff6fd}
+.agent .button[data-phase="rejected"]{background:#a83f3b;border-color:#a83f3b;color:#fff}
+.agent .button[data-phase="stale_evidence"]{background:#f5e8e6;border:1px solid #e7c4c0;color:#994740}
+.agent-status[data-state="review_required"]{color:#946016;font-weight:750;background:#fff9ed;border:1px solid #efdbab;border-radius:8px;padding:8px 10px;line-height:1.55}
+.agent-status[data-state="no_findings"]{color:#5d7285;font-weight:650;background:#f3f7fa;border:1px solid #e1e8ef;border-radius:8px;padding:8px 10px}
+.agent-status[data-state="stale"]{color:#9e4036;font-weight:750}
+.agent-status[data-state="rejected"]{color:#a34039;font-weight:750}
+.activity-entry[data-needs-review="true"]{border-color:#efdca9;background:#fffaf0}
+.activity-entry[data-needs-review="true"] .activity-entry-head span{color:#865b1c;font-weight:700}
+@keyframes tbcare-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .agent .button[data-phase="requested"]::before,
+  .agent .button[data-phase="retrieving_evidence"]::before,
+  .agent .button[data-phase="waiting_for_model"]::before,
+  .agent .button[data-phase="validating"]::before{animation:none;border-top-color:#79a7ce}
+}
