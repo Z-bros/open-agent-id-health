@@ -1,12 +1,13 @@
 # TB-CareOS product phase A — interactive local case explorer
 
-**First product surface, built 22 October 2026.** This is a REAL browser
-application backed by the existing tested Python agents, not the static
-E06 HTML report. Its scope is deliberately limited to a safe product slice:
-interactive fabricated case selection, evidence retrieval/timeline, CareFlow
-findings with clickable business ID citations and **explicit** NVIDIA Nemotron
-CaseLens and NextStep actions. Review decisions and an interactive Meterless
-audit browser are still **NOT IMPLEMENTED** and are visibly labeled as such.
+**Interactive product, first built 22 October 2026; Phase B added 23 October.**
+This is a real browser application backed by the tested Python agents, not the
+static E06 report. Its current features include fabricated case selection,
+evidence timeline and citations, opt-in NVIDIA CaseLens/NextStep actions,
+**explicit local administrative reviewer notes** and local note history.
+The interactive Meterless audit-event browser is **NOT IMPLEMENTED** (Phase C).
+Reviewer notes do **not** imply verified reviewer identity, official case
+approval, source verification, or an escalation delivered to staff.
 
 The app binds ONLY to 127.0.0.1. It uses Python's standard-library HTTP
 server and self-hosted HTML/CSS/JavaScript, with no required Python/Node
