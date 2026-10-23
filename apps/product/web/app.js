@@ -60,8 +60,10 @@ function renderJourney() {
   const agentRejected=wf.explain==="rejected" || wf.plan==="rejected";
   const anyRunning=wf.explain==="running" || wf.plan==="running";
 
+  const impaired=hasEvidence && state.evidence.source_checks.some(check=>
+    !["available","not_found"].includes(check.status));
   $("step-evidence").textContent=wf.evidence==="retrieved"?
-    "Source checks retrieved":wf.evidence==="loading"?"Retrieving…":
+    (impaired?"Partial source access":"Source checks retrieved"):wf.evidence==="loading"?"Retrieving…":
     wf.evidence==="failed"?"Source read failed":"Not checked";
   $("step-agents").textContent=agentRejected?"Rejected output · manual review":
     anyRunning?"Generating…":explanationReady && planReady?"Both accepted":
@@ -94,9 +96,11 @@ function renderJourney() {
     summary="A hosted model request is running. No proposed source checks are being executed.";
     labelText="Inspect agent progress →";
   }else if (!explanationReady || !planReady){
-    summary=noFindings?
+    summary=impaired?
+      "At least one source query was unavailable. Treat document absence as unknown; agent output cannot certify a complete snapshot.":
+      noFindings?
       "No rule-based discrepancy was found in this source snapshot; this does not establish completeness. You can inspect the bounded no-finding agent path.":
-      "CareFlow findings are ready. Ask CaseLens and NextStep explicitly; their results remain separate until validated.";
+      "CareFlow findings are ready. Ask CaseLens and NextStep explicitly; their results are independently validated.";
   }else if (!noFindings && wf.reviewCount===0){
     target="review-panel";
     labelText="Go to local review →";
@@ -148,7 +152,9 @@ function renderList() {
     if(inspected){
       right.append(el("span",inspected.findings?"case-label flagged":"case-label inspected",
         inspected.findings?inspected.findings+" finding"+(inspected.findings===1?"":"s"):
-        "Read"));
+        inspected.impaired?"Partial read":"Read"));
+      if(inspected.impaired && inspected.findings)
+        right.append(el("span","case-label uninspected","Partial"));
     }else{
       right.append(el("span","case-label uninspected","Not checked"));
     }
@@ -433,7 +439,11 @@ async function loadCase(id) {
     state.evidence=bundle;
     state.workflow.evidence="retrieved";
     state.workflow.reviewCount=-1;
-    state.inspected.set(id,{findings:bundle.exceptions.length, observations:bundle.observations.length});
+    const impaired=bundle.source_checks.some(check=>
+      !["available","not_found"].includes(check.status));
+    state.inspected.set(id,{
+      findings:bundle.exceptions.length, observations:bundle.observations.length, impaired
+    });
     renderJourney();
     renderList();
     $("case-subtitle").textContent="Synthetic administrative case · Source observations and bounded review";
