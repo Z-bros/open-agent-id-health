@@ -151,11 +151,15 @@ function renderList() {
     const noteCount=state.localNotes.get(id) || 0;
     const right=el("span","case-summary");
     if(inspected){
+      if(inspected.stale){
+        right.append(el("span","case-label uninspected","Stale · refresh"));
+      }else{
       right.append(el("span",inspected.findings?"case-label flagged":"case-label inspected",
         inspected.findings?inspected.findings+" finding"+(inspected.findings===1?"":"s"):
         inspected.impaired?"Partial read":"Read"));
       if(inspected.impaired && inspected.findings)
         right.append(el("span","case-label uninspected","Partial"));
+      }
     }else{
       right.append(el("span","case-label uninspected","Not checked"));
     }
@@ -543,6 +547,9 @@ async function invokeAgent(kind) {
     if(error.code==="evidence_snapshot_changed"){
       // Both agent outputs are invalidated for the old evidence snapshot.
       state.workflow.evidence="stale";
+      const inspected=state.inspected.get(caseId);
+      if(inspected)inspected.stale=true;
+      renderList();
       state.workflow.explain="not_requested";
       state.workflow.plan="not_requested";
       clear("explanation");clear("plan-result");
