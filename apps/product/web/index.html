@@ -9,12 +9,14 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#investigation">Skip to investigation</a>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand"><div class="mark">✳</div><div><b>TB-CareOS</b><span>Evidence operations</span></div></div>
     <div class="side-label">WORKSPACE</div>
     <div class="nav-active"><span class="nav-glyph">▤</span> Case explorer <span class="mini-tag">MVP</span></div>
     <div class="side-label side-label-second">SYNTHETIC CASES <span id="case-count" class="count">—</span></div>
+    <p class="list-hint">Source state appears only after opening a case. A local note is not a case approval.</p>
     <label for="case-search" class="sr-only">Search synthetic case ID</label>
     <input id="case-search" type="search" placeholder="Search case ID…" autocomplete="off">
     <div id="case-list" class="case-list" aria-label="Synthetic case list"><div class="loading-list">Loading case IDs…</div></div>
@@ -41,6 +43,23 @@
         <button id="refresh" type="button" class="button secondary" disabled>↻ &nbsp; Refresh evidence</button>
       </div>
       <div class="notice"><span>ⓘ</span><div><strong>Human-in-the-loop workspace.</strong> Every record is fabricated. Missing electronic documentation does not mean care was missed. AI outputs are evidence-bound suggestions and always require human review.</div></div>
+      <section class="demo-picker" aria-labelledby="demo-picker-title">
+        <div class="demo-intro"><span class="demo-kicker">START A WORKFLOW</span><h2 id="demo-picker-title">Explore a synthetic scenario</h2><p>Choose a sample to retrieve actual read-only source evidence. Labels describe the demo scenario, not a precomputed outcome.</p></div>
+        <div class="demo-options" role="group" aria-label="Synthetic scenario shortcuts">
+          <button type="button" class="scenario" data-demo-case="CASE-TB-001"><span class="scenario-index">01</span><strong>No flagged discrepancy</strong><small>CASE-TB-001 · evidence-first review</small></button>
+          <button type="button" class="scenario" data-demo-case="CASE-TB-009"><span class="scenario-index">02</span><strong>Unreturned lab document</strong><small>CASE-TB-009 · source uncertainty</small></button>
+          <button type="button" class="scenario" data-demo-case="CASE-TB-018"><span class="scenario-index">03</span><strong>Subject-reference mismatch</strong><small>CASE-TB-018 · conflicting identifiers</small></button>
+        </div>
+      </section>
+      <nav id="investigation" class="journey" aria-label="Investigation workflow">
+        <div class="journey-header"><div><span class="demo-kicker">INVESTIGATION PATH</span><h2>From records to documented review</h2><p id="journey-summary" aria-live="polite">Select a case to begin. Nothing runs automatically except read-only evidence retrieval.</p></div><button type="button" id="journey-continue" class="button primary" disabled>Choose a case</button></div>
+        <div class="journey-steps">
+          <button type="button" class="journey-step" data-journey-target="findings-card" disabled><span class="journey-index">1</span><span class="journey-copy"><strong>Inspect sources</strong><small id="step-evidence">Not checked</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="agent-investigation" disabled><span class="journey-index">2</span><span class="journey-copy"><strong>Ask the agents</strong><small id="step-agents">Not requested</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="review-panel" disabled><span class="journey-index">3</span><span class="journey-copy"><strong>Record a note</strong><small id="step-review">No local note</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="meterless-audit" disabled><span class="journey-index">4</span><span class="journey-copy"><strong>Inspect audit</strong><small id="step-audit">Not checked</small></span></button>
+        </div>
+      </nav>
       <div id="error" class="error" role="alert" hidden></div>
       <div id="content-empty" class="empty-cover"><div class="empty-emblem">⌕</div><h2>Investigation workspace</h2><p>Select a synthetic case to retrieve the latest available evidence through the bounded read-only connector.</p></div>
       <div id="case-content" hidden>
@@ -54,10 +73,10 @@
           <section class="card" id="findings-card"><div class="card-head"><div><h2>CareFlow findings</h2><p>Deterministic discrepancies with traceable evidence</p></div><span class="chip warn">Human review</span></div><div id="findings" class="section-body"></div></section>
           <section class="card"><div class="card-head"><div><h2>Source availability</h2><p>Observed read status; not a completeness guarantee</p></div><span class="chip">Zetaris</span></div><div id="sources" class="section-body"></div></section>
         </div>
-        <section class="card agent-card"><div class="card-head"><div><h2>Agent investigation</h2><p>Invoke bounded inference explicitly; no automatic actions</p></div><span class="chip">NVIDIA Nemotron</span></div>
+        <section class="card agent-card" id="agent-investigation"><div class="card-head"><div><h2>Agent investigation</h2><p>Invoke bounded inference explicitly; no automatic actions</p></div><span class="chip">NVIDIA Nemotron</span></div>
           <div class="agent-grid">
-            <div class="agent"><div class="agent-top"><span class="agent-icon">◇</span><div><b>CaseLens</b><span>Evidence-grounded explanation</span></div></div><button id="explain" class="button primary">Generate explanation →</button><div id="explain-status" class="agent-status">Not requested</div><div id="explanation" class="agent-result"></div></div>
-            <div class="agent"><div class="agent-top"><span class="agent-icon">⇢</span><div><b>NextStep</b><span>Bounded verification proposals</span></div></div><button id="plan" class="button primary">Generate verification plan →</button><div id="plan-status" class="agent-status">Not requested</div><div id="plan-result" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon">◇</span><div><b>CaseLens</b><span>Evidence-grounded explanation</span></div></div><button id="explain" class="button primary">Generate explanation →</button><div id="explain-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="explanation" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon">⇢</span><div><b>NextStep</b><span>Bounded verification proposals</span></div></div><button id="plan" class="button primary">Generate verification plan →</button><div id="plan-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="plan-result" class="agent-result"></div></div>
           </div>
           <p class="agent-disclaimer">Agent generation can call the NVIDIA hosted model. Plans are proposals only: this application does not execute suggested checks or contact anyone.</p>
         </section>
