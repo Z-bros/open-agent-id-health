@@ -39,9 +39,9 @@ async function request(path, opts) {
 function setLoad(active) {
   state.busy = active;
   $("refresh").disabled = !state.current || active;
-  $("explain").disabled = active || !state.evidence;
-  $("plan").disabled = active || !state.evidence;
-  $("save-review").disabled = active || !state.evidence || !state.evidence.exceptions.length;
+  $("explain").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved";
+  $("plan").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved";
+  $("save-review").disabled = active || !state.evidence || state.workflow.evidence!=="retrieved" || !state.evidence.exceptions.length;
 }
 function navigateSection(sectionId) {
   if (!state.evidence) return;
@@ -64,7 +64,7 @@ function renderJourney() {
     !["available","not_found"].includes(check.status));
   $("step-evidence").textContent=wf.evidence==="retrieved"?
     (impaired?"Partial source access":"Source checks retrieved"):wf.evidence==="loading"?"Retrieving…":
-    wf.evidence==="failed"?"Source read failed":"Not checked";
+    wf.evidence==="failed"?"Source read failed":wf.evidence==="stale"?"Outdated snapshot":"Not checked";
   $("step-agents").textContent=agentRejected?"Rejected output · manual review":
     anyRunning?"Generating…":explanationReady && planReady?"Both accepted":
     (explanationReady||planReady)?"Partially generated":"Not requested";
@@ -84,11 +84,12 @@ function renderJourney() {
   let labelText="Go to agent tools →";
   let summary="Evidence retrieved. Agents are optional and require explicit clicks.";
   if (!hasEvidence){
-    summary=wf.evidence==="failed"?
+    summary=wf.evidence==="stale"?"Evidence changed since retrieval. Refresh before requesting agents or recording notes.":
+      wf.evidence==="failed"?
       "Source validation failed. Refresh evidence before attempting AI or recording notes.":
       wf.evidence==="loading"?"Retrieving and validating this synthetic case…":
       "Choose a case to retrieve real synthetic source evidence. No model request runs automatically.";
-    labelText="Choose a case";
+    labelText=wf.evidence==="stale"?"Refresh evidence first":"Choose a case";
   }else if(agentRejected){
     summary="An AI output was rejected. It was not accepted as evidence or a completed investigation; retry only deliberately.";
     labelText="Inspect agent failure →";
@@ -327,7 +328,7 @@ async function loadReviewActivity(){
 }
 async function submitReview(event){
   event.preventDefault();
-  if(!state.evidence || !state.current || state.busy || !state.evidence.exceptions.length)return;
+  if(!state.evidence || !state.current || state.busy || state.workflow.evidence!=="retrieved" || !state.evidence.exceptions.length)return;
   if(!$("review-form").reportValidity())return;
   const caseId=state.current;
   const token=state.generation;
@@ -510,7 +511,7 @@ function renderPlan(report) {
   }
 }
 async function invokeAgent(kind) {
-  if(!state.current || !state.evidence || state.busy)return;
+  if(!state.current || !state.evidence || state.busy || state.workflow.evidence!=="retrieved")return;
   const caseId=state.current;
   const token=state.generation;
   const statusId=kind==="explain"?"explain-status":"plan-status";
@@ -524,7 +525,7 @@ async function invokeAgent(kind) {
   setLoad(true);
   try{
     const result=await request("/api/cases/"+encodeURIComponent(caseId)+"/"+kind,
-      {method:"POST"});
+      {method:"POST",headers:{"X-TBCareOS-Evidence-SHA256":state.evidence.evidence_snapshot_sha256}});
     if(token!==state.generation)return;
     if(kind==="explain")renderExplanation(result);
     else renderPlan(result);
@@ -539,6 +540,20 @@ async function invokeAgent(kind) {
     renderJourney();
   } catch(error){
     if(token!==state.generation)return;
+    if(error.code==="evidence_snapshot_changed"){
+      // Both agent outputs are invalidated for the old evidence snapshot.
+      state.workflow.evidence="stale";
+      state.workflow.explain="not_requested";
+      state.workflow.plan="not_requested";
+      clear("explanation");clear("plan-result");
+      $("explain-status").textContent="Outdated source snapshot · refresh evidence";
+      $("plan-status").textContent="Outdated source snapshot · refresh evidence";
+      $("explain-status").dataset.state="rejected";
+      $("plan-status").dataset.state="rejected";
+      showError("Evidence changed since this case was opened. Refresh evidence before another agent request or local review note.");
+      renderJourney();
+      return;
+    }
     $(statusId).textContent="Rejected or failed ["+(error.code || "request_failed")+"] · "+error.message+
       (error.guidance ? " "+error.guidance : "")+" No substitute result was generated.";
     $(containerId).append(el("p","", "No AI explanation or plan was accepted. You may deliberately retry this action; the verified CareFlow evidence remains available."));
