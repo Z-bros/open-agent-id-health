@@ -18,6 +18,8 @@
     <label for="case-search" class="sr-only">Search synthetic case ID</label>
     <input id="case-search" type="search" placeholder="Search case ID…" autocomplete="off">
     <div id="case-list" class="case-list" aria-label="Synthetic case list"><div class="loading-list">Loading case IDs…</div></div>
+    <div class="side-label side-review-label">LOCAL REVIEW ACTIVITY <span id="activity-count" class="count">0</span></div>
+    <div id="review-activity" class="review-activity-list" aria-label="Locally recorded review activity"><p>None recorded yet</p></div>
     <div class="side-footer">
       <div class="safe-icon">◎</div>
       <b>Controlled demo</b>
@@ -46,7 +48,7 @@
           <div class="metric"><div class="metric-label">Evidence records</div><div id="stat-evidence" class="metric-value">—</div><div class="metric-foot">Source-linked records</div></div>
           <div class="metric"><div class="metric-label">Source checks</div><div id="stat-checks" class="metric-value">—</div><div class="metric-foot">Query outcomes</div></div>
           <div class="metric"><div class="metric-label">Administrative findings</div><div id="stat-findings" class="metric-value">—</div><div class="metric-foot">Requires verification</div></div>
-          <div class="metric"><div class="metric-label">Recorded review</div><div class="metric-value small-value">Not recorded</div><div class="metric-foot">Review log not built yet</div></div>
+          <div class="metric"><div class="metric-label">Local review notes</div><div id="stat-reviews" class="metric-value small-value">None</div><div class="metric-foot">Not a sign-off or clinical action</div></div>
         </div>
         <div class="two-col">
           <section class="card" id="findings-card"><div class="card-head"><div><h2>CareFlow findings</h2><p>Deterministic discrepancies with traceable evidence</p></div><span class="chip warn">Human review</span></div><div id="findings" class="section-body"></div></section>
@@ -62,7 +64,29 @@
         <section class="card"><div class="card-head"><div><h2>Evidence timeline</h2><p>Retrieved administrative events with business IDs, provenance and synthetic subject refs</p></div><span id="timeline-count" class="chip">0 events</span></div>
           <div class="table-wrap"><table><thead><tr><th>Observed (UTC)</th><th>Evidence source</th><th>Business ID</th><th>Source record</th><th>Synthetic subject</th></tr></thead><tbody id="timeline"></tbody></table></div>
         </section>
-        <section class="card footer-card"><div class="card-head"><div><h2>Review decisions &amp; audit history</h2><p>Planned product phase B</p></div><span class="chip muted">Not implemented</span></div><p>Backend Meterless audit persistence is verified. The interactive event browser and explicitly authorized local reviewer notes will be connected in the next product iteration; no review is submitted by this screen.</p></section>
+        <section class="card review-card" id="review-panel">
+          <div class="card-head"><div><h2>Administrative human-review notes</h2><p>Record one explicit disposition against a retrieved CareFlow finding</p></div><span class="chip warn">Local-only record</span></div>
+          <div class="review-info">This records a <strong>fictional administrative reviewer note</strong> in local append-only history. It does not approve a case, verify a real identity, execute a NextStep check, communicate with anyone, or change Zetaris data.</div>
+          <div class="review-grid">
+            <form id="review-form" autocomplete="off">
+              <div class="form-row"><label for="review-finding">Finding to review</label><select id="review-finding" required></select></div>
+              <div class="form-row"><label for="review-disposition">Administrative disposition</label>
+                <select id="review-disposition" required>
+                  <option value="request_source_verification">Request source-record verification (proposed only)</option>
+                  <option value="escalate_admin_review">Escalate for administrative review (local note only)</option>
+                  <option value="reviewed_unresolved">Reviewed; remains unresolved</option>
+                </select>
+              </div>
+              <div class="form-row"><label for="reviewer-label">Fictional reviewer label</label><input id="reviewer-label" value="DEMO-REVIEWER" maxlength="29" pattern="DEMO-[A-Z0-9_-]{2,24}" required><small>Fictional DEMO-* tag only; no real names or identifying details</small></div>
+              <div class="form-row"><label for="review-note">Administrative reason / next verification</label><textarea id="review-note" rows="3" minlength="12" maxlength="280" required placeholder="Verify the cited synthetic source-row references with an authorized administrator; status remains unresolved."></textarea><small>12–280 characters. Avoid clinical claims, real identifiers, links and patient outreach.</small></div>
+              <label class="review-confirm"><input id="review-confirm" type="checkbox" required><span>I understand this is an administrative note in a synthetic local demo, not a case approval or an action in an external system.</span></label>
+              <button class="button primary review-submit" type="submit" id="save-review">Record local review note</button>
+              <p id="review-status" role="status" aria-live="polite"></p>
+            </form>
+            <div class="review-ledger"><div class="ledger-title">Recorded history <span id="review-total" class="chip muted">0 events</span></div><div id="review-history" aria-live="polite">No local notes recorded for this case.</div><div class="history-help">Timestamp = actual local review submission in UTC. It is not a source-event timestamp. The reviewer label is self-entered, not authenticated.</div></div>
+          </div>
+        </section>
+        <section class="card footer-card"><div class="card-head"><div><h2>Meterless audit-event browser</h2><p>Planned product phase C</p></div><span class="chip muted">Not implemented</span></div><p>Backend Meterless persistence for CareFlow, CaseLens and NextStep is verified separately. This view currently shows local human review notes only; it does not yet browse the Meterless event stream or archive these reviewer notes into Meterless.</p></section>
       </div>
       <footer>TB-CareOS · Open Agent Hackathon 2026 · Synthetic administrative evidence · Not a clinical decision system</footer>
     </div>
