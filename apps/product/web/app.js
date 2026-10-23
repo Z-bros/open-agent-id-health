@@ -345,7 +345,7 @@ const ACTIVITY_STATES = Object.freeze({
   waiting_for_model:"Waiting for hosted model",
   validating:"Validating model response",
   no_model_needed:"No model inference needed",
-  accepted:"Validated and accepted",
+  accepted:"Step validated · Not case clearance",
   rejected:"Output rejected",
   failed:"Operation failed",
   stale_evidence:"Evidence changed · refresh required",
@@ -355,6 +355,13 @@ const ACTIVITY_STATES = Object.freeze({
 const ACTIVITY_OPERATIONS = Object.freeze({
   careflow:"CareFlow", caselens:"CaseLens", nextstep:"NextStep", review:"Local review",
 });
+function activityStateLabel(event){
+  if(event.state==="accepted" && ["caselens","nextstep"].includes(event.operation))
+    return "Output validated · Review still required";
+  if(event.state==="accepted" && event.operation==="careflow")
+    return "Source checks completed · Not case clearance";
+  return ACTIVITY_STATES[event.state]||"Observed event";
+}
 const IMPORTANT_ACTIVITY = new Set([
   "accepted","rejected","failed","stale_evidence",
   "awaiting_human_review","review_note_recorded"
@@ -375,7 +382,7 @@ function renderActivity(data) {
       state.activityUnread.add(event.event_id);
       $("activity-toast").textContent=
         (ACTIVITY_OPERATIONS[event.operation]||"Agent")+" — "+
-        (ACTIVITY_STATES[event.state]||"Activity changed")+
+        activityStateLabel(event)+
         " · "+data.case_id+".";
     }
   }
@@ -407,10 +414,12 @@ function renderActivity(data) {
   for(const event of [...events].reverse().slice(0,16)){
     const div=el("div","activity-entry");
     div.dataset.state=event.state;
+    if(event.state==="accepted" && ["caselens","nextstep"].includes(event.operation))
+      div.dataset.needsReview="true";
     const head=el("div","activity-entry-head");
     head.append(
       el("strong","",ACTIVITY_OPERATIONS[event.operation]||"Application"),
-      el("span","",ACTIVITY_STATES[event.state]||"Observed event")
+      el("span","",activityStateLabel(event))
     );
     div.append(head);
     div.append(el("div","activity-entry-time",timeString(event.occurred_at_utc)));
