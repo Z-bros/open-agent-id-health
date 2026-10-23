@@ -1,18 +1,23 @@
-# TB-CareOS product phase A — interactive local case explorer
+# TBCare — Local synthetic evidence investigation product
 
-**Interactive product, first built 22 October 2026; Phase B added 23 October.**
-This is a real browser application backed by the tested Python agents, not the
-static E06 report. Its current features include fabricated case selection,
-evidence timeline and citations, opt-in NVIDIA CaseLens/NextStep actions,
-**explicit local administrative reviewer notes** and local note history.
-The interactive Meterless audit-event browser is **NOT IMPLEMENTED** (Phase C).
-Reviewer notes do **not** imply verified reviewer identity, official case
-approval, source verification, or an escalation delivered to staff.
+**Current candidate, 23 October 2026:** TBCare presents CareFlow synthetic
+administrative evidence, explicitly requested Nemotron explanations and
+verification proposals, a fictional local reviewer-note ledger, and genuine
+previously persisted Meterless World Model events. The separate Phase G local
+application activity feed polls observed server checkpoints while the page
+is visible; Phase G.1 adds button-level loading stages and **amber
+human-review-required messaging** on technically validated agent output.
+No real patient data, official approval, executed NextStep query, actual
+background worker, or notifications after closing the page are supported.
 
-The app binds ONLY to 127.0.0.1. It uses Python's standard-library HTTP
-server and self-hosted HTML/CSS/JavaScript, with no required Python/Node
-package installation. This is a pragmatic local-first demo rather than a
-production deployment or the originally proposed full Next.js/FastAPI stack.
+The former project identifier TB-CareOS is retained only in selected legacy
+technical files, API headers and repository paths for compatibility. **TBCare**
+is the user-facing product name. The old per-phase instructions below are
+historical and may describe functionality not available at the time they
+were first written; use the latest Phase G/G.1 section for the current branch.
+
+The application binds only to 127.0.0.1 and uses Python's standard-library
+HTTP server with self-hosted HTML/CSS/JavaScript.
 
 ## Start with real read-only Zetaris
 
@@ -527,3 +532,61 @@ For the exact finite-state contract, read
 [Phase G observed activity contract](../../docs/phase-g-activity-contract.md).
 This branch is a reviewed **direct-main consolidation candidate** in
 draft PR #23, not a completed merger or production release.
+
+
+## Phase G.1 — in-context progress and cautious outcomes (23 Oct 2026)
+
+The **Generate explanation** and **Generate verification plan** buttons
+immediately acknowledge an explicit user request. As new server events
+arrive via the existing Phase G read-only activity endpoint, each clicked
+button changes its visible label to reflect only real stages:
+- Request submitted (browser-initiated)
+- Source evidence retrieval (confirmed by the server)
+- Waiting for the hosted model (confirmed by the model client)
+- Validating the returned result (confirmed by model client boundary)
+- Ready to generate again, or an explicit retry on rejection
+
+The labels never simulate provider progress with a timer. The parent status
+remains available for accessible announcements; the spinning indicator
+respects reduced-motion preferences.
+
+**Validated output is NOT administrative clearance.** For finding-bearing
+cases, CaseLens now reports **Explanation validated · Administrative review
+required**, and NextStep reports **Verification proposals validated · Not
+executed · Human review required**. Both statuses are amber, never green
+case-complete signals. The guided investigation step reads **Both validated
+· review required**. For zero-finding cases, the status stays neutral:
+**No discrepancy flagged in this snapshot · Evidence not certified complete**.
+Rejected outputs and stale evidence remain red. The human-review note is still
+fictional and local-only, and does not resolve or approve a case.
+
+User-facing branding is **TBCare**. Repository path, SQL namespace
+\`TBCARE_OS\`, synthetic \`CASE-TB-*\` identifiers and existing
+\`X-TBCareOS-*\` request headers are unchanged to preserve integration
+compatibility. This is a display/content change, not a migration.
+
+### Regression and local browser acceptance
+
+Stop the previous localhost server first, then from WSL2 repo root:
+
+    git fetch origin
+    git switch --track origin/integrate/tbcareos-product-g-candidate
+    PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+    PYTHONPATH=src:. python3 -m apps.product \
+      --helper ~/zetaris-getting-started/scripts/query_zetaris.py \
+      --namespace TBCARE_OS \
+      --model nvidia/nemotron-3.5-lightning-30b-a3b \
+      --review-dir outputs/reviews \
+      --activity-dir outputs/activities \
+      --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+      --meterless-state-dir outputs/meterless --port 8765
+
+Hard-refresh http://localhost:8765/ and open CASE-TB-018 and CASE-TB-009.
+Click each agent separately: the clicked button must show immediate progress,
+then only server-observed retrieval/model/validation stages. On accepted
+outputs it must not imply a case was cleared; proposed queries must remain
+unexecuted. On rejection, show the existing failure card and explicit retry.
+On an evidence snapshot conflict, the refresh-first guard must still apply.
+
+The candidate has automated test coverage for these labels and state
+boundaries. **Participant browser acceptance for Phase G.1 is still pending.**
