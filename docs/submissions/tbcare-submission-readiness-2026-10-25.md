@@ -11,9 +11,9 @@ This is a **verification ledger**, not an assertion of clinical or production re
 | Browser bridge | 25 Oct CASE-TB-006 actual evidence + observed model activity in local Next.js mode | Full clean-clone/browser accessibility signoff |
 | Meterless | CASE-TB-006 manual source + saved validated CaseLens/NextStep report archival, 18 canonical events; replay yielded zero new canonical events | No automatic UI archival or run-ID correlation |
 | Human review | Local notes with SHA256 snapshot guard, idempotency and fictional label | Reviewer identity not verified, not a real administrative approval |
-| Frontend source | Optional Next.js v0.3.1 added to integrated candidate branch | Next.js CI source suites, typecheck, and production demo build **passed** (commit `76b94ba5`); a local WSL clean-clone check remains; optional design-reference PNGs excluded |
-| Publication | PR #23 contains the integrated candidate, CI checks required | Repo visibility still controlled by owner; final `main` merge not authorized |
-| Submission | Architecture, demo cases, evaluation disclosures and runbooks | Capture real demo/screenshots, verify dates/fields on hackathon form, submit before deadline |
+| Frontend source | Optional Next.js v0.3.1 added to integrated candidate branch | Next.js source suites, typecheck, and production demo build **passed** in both frontend workflows at `8db3f5ad`; local WSL clean-clone/browser acceptance remains; no tracked lockfile yet, so use `npm install` rather than `npm ci` |
+| Publication | PR #23 contains the integrated candidate, CI checks required | Repository confirmed **public** 25 Oct; the existing Git history/branches/Actions also require secret review; final `main` merge remains explicitly deferred |
+| Submission | Architecture, demo cases, evaluation disclosures and runbooks | Record a 1–4 minute video; attach a slide deck, repository, sponsor-tech explanation, pre-existing work disclosure, and team/track fields; submit via HackOS before deadline |
 
 ## Suggested judge walkthrough (synthetic only)
 
@@ -31,3 +31,9 @@ No patient diagnosis, treatment outcome, real hospital interoperability, officia
 Original verified reports: [E09](../e09-verified-evaluation-results.md) and [E10](../e10-verified-nemotron-results.md). World Model integration: [E03](../e03-meterless-runbook.md) and [E08](../../shared/meterless/E08-AUDIT.md).
 
 **Deadline from hackathon orientation:** 28 October 2026, 06:45 WIB. Target submit 27 October.
+
+## CI baseline and release boundary
+
+As checked on 25 October, head `8db3f5ad57ae1216c0d69a57fb8cf554ab333df0` passed all four GitHub workflow runs (offline Python, upstream Meterless, two optional frontend builds). They validate source and fixture behavior, **not** fresh WSL clean-clone/live Zetaris, model credential reliability, or browser accessibility. PR #23 is intentionally draft; do not represent its code as merged into `main`.
+
+For the actual organizer-required submission fields and a four-slide storyline see [`HACKOS-PACKAGE-2026-10-25.md`](HACKOS-PACKAGE-2026-10-25.md). Track 01 is the current recommendation, **not an already confirmed HackOS selection**.
