@@ -11,7 +11,7 @@ This is a **verification ledger**, not an assertion of clinical or production re
 | Browser bridge | 25 Oct CASE-TB-006 actual evidence + observed model activity in local Next.js mode | Full clean-clone/browser accessibility signoff |
 | Meterless | CASE-TB-006 manual source + saved validated CaseLens/NextStep report archival, 18 canonical events; replay yielded zero new canonical events | No automatic UI archival or run-ID correlation |
 | Human review | Local notes with SHA256 snapshot guard, idempotency and fictional label | Reviewer identity not verified, not a real administrative approval |
-| Frontend source | Optional Next.js v0.3.1 added to integrated candidate branch | Next.js CI typecheck/build and WSL check; optional PNG design references excluded |
+| Frontend source | Optional Next.js v0.3.1 added to integrated candidate branch | Next.js CI source suites, typecheck, and production demo build **passed** (commit `76b94ba5`); a local WSL clean-clone check remains; optional design-reference PNGs excluded |
 | Publication | PR #23 contains the integrated candidate, CI checks required | Repo visibility still controlled by owner; final `main` merge not authorized |
 | Submission | Architecture, demo cases, evaluation disclosures and runbooks | Capture real demo/screenshots, verify dates/fields on hackathon form, submit before deadline |
 

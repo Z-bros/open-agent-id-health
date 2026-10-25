@@ -1,4 +1,4 @@
-# TBCare optional Next.js frontend v0.3
+# TBCare optional Next.js frontend v0.3.1
 
 See [DESIGN_IMPLEMENTATION.md](DESIGN_IMPLEMENTATION.md) for the current design changes, startup instructions, validation and limitations.
 

@@ -25,7 +25,7 @@ npm run build
 npm run dev -- --port 3001
 ```
 
-The four frontend static suites have been run successfully on the v0.3.1 source. Full Next.js typecheck/build will be verified by the new GitHub Actions workflow, and a **fresh WSL clean-clone with locally running sponsors** remains a manual sign-off item.
+The four frontend static suites have been run successfully on the v0.3.1 source. The new GitHub Actions Next.js workflow **passed all four contract suites, TypeScript typecheck, and the production demo-only build** on 25 Oct 2026 (commit `76b94ba5`), and a **fresh WSL clean-clone with locally running sponsors** remains a manual sign-off item.
 
 ## Verified sponsor flows vs remaining gaps
 

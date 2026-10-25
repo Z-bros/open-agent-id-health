@@ -1,5 +1,7 @@
 # TBCare — Next.js design integration and local verification
 
+> **Repository update (25 Oct 2026):** This source now lives in `apps/tbcare-next/` on the consolidated integration branch. GitHub Actions completed the four static suites, TypeScript typecheck, and production demo-mode build successfully; genuine sponsor-connected WSL clean-clone acceptance remains separate. Historical package-handoff notes below may predate this repository integration.
+
 **Scope:** Optional frontend based on the uploaded `tb-careos-agentic-starter(2).zip`, adapted to the current TBCare prototype and Phase G application activity API. It is **not a replacement for the existing Python backend** or an official TB health information integration.
 
 ## Why keep this as a separate frontend?
