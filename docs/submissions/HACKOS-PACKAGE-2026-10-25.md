@@ -1,6 +1,6 @@
 # TBCare — HackOS final submission package (as of 25 Oct 2026)
 
-> This is a **working submission checklist**, not a submitted entry, a completed clean-clone acceptance, or clinical product clearance. All examples use fabricated records. Keep the integrated candidate on draft PR #23 until the owner explicitly approves merging into `main`.
+> This is a **working submission checklist**, not a submitted entry, a completed clean-clone acceptance, or clinical product clearance. All examples use fabricated records. PR #23 was merged into `main` with explicit approval on 25 October 2026; this does not complete HackOS submission or participant-side runtime acceptance.
 
 ## Entry positioning
 
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | 1–4 minute demo video | Record the *actual* application flow, not a mockup-only animation | **Not recorded/verified here** |
 | Slide deck | Problem, user, solution, architecture; suggested four-slide script below | **Needs export and attachment** |
-| GitHub repository | Public `Z-bros/open-agent-id-health` plus reproducible README; currently the complete implementation is only on draft PR #23 | **Candidate exists; main not merged** |
+| GitHub repository | Public `Z-bros/open-agent-id-health`; integrated source and README are now in `main` following PR #23 | **Merged at `325b27e`; fresh participant-side acceptance still needed** |
 | Sponsor explanation | Evidence of genuine Zetaris and Meterless, Cursor build environment and any actual NVIDIA usage | **Documentation available; final write-up needed** |
 | Pre-existing components | Clearly disclose earlier generic prototype, pre-kickoff monorepo/schema, installation checks and prepared synthetic TB-v1 dataset | **Disclose explicitly** |
 | Project details | Product name, team members, one selected track, description | **Finalize in HackOS** |
@@ -48,11 +48,11 @@
 ## Final release gate checklist
 
 - [ ] Review all public commit history, branches, Actions output and local config for secrets; public repository is **not** a security audit.
-- [ ] Cold-clone `integrate/tbcareos-product-g-candidate` in participant WSL and run Python unit suite; start Zetaris-backed Python app.
+- [ ] Cold-clone default `main` in participant WSL and run Python unit suite; start Zetaris-backed Python app.
 - [ ] Frontend: `cd apps/tbcare-next && npm install --no-audit --no-fund && npm run test:static && npm run test:agentic && npm run test:integration && npm run test:brief && npm run typecheck && npm run build`. No tracked npm lockfile currently; `npm ci` is inappropriate.
 - [ ] In separate terminals start Python on 8765 and Next.js on 3001 with **localhost-only** opt-in proxy; verify sources and independently triggered model calls for 001, 009 and 018.
 - [ ] Check responsive layout, keyboard navigation, error recovery, genuine and rejected model responses, human-review persistence, actual Meterless events.
-- [ ] Obtain explicit owner approval before merging PR #23; verify `main` post-merge at known commit; do not assume CI substitutes for runtime acceptance.
+- [x] PR #23 merged into `main` at `325b27e7b909e65b71d18cd77e2c9e992c620936` with explicit user approval. **Still pending:** participant clean-clone browser/runtime acceptance; CI does not substitute for it.
 - [ ] Export final deck, record 1–4 min screen capture, confirm team/track and sponsor write-up, and submit on HackOS before the UTC deadline.
 
-**Source of truth:** [root README](../../README.md), [submission readiness](tbcare-submission-readiness-2026-10-25.md), [quickstart](../SUBMISSION-QUICKSTART.md), [pre-existing disclosure](../prebuild-disclosure.md), [E09 evidence](../e09-verified-evaluation-results.md), [E10 evidence](../e10-verified-nemotron-results.md), and [the candidate PR](https://github.com/Z-bros/open-agent-id-health/pull/23).
+**Source of truth:** [root README](../../README.md), [submission readiness](tbcare-submission-readiness-2026-10-25.md), [quickstart](../SUBMISSION-QUICKSTART.md), [pre-existing disclosure](../prebuild-disclosure.md), [E09 evidence](../e09-verified-evaluation-results.md), [E10 evidence](../e10-verified-nemotron-results.md), and [the merged PR](https://github.com/Z-bros/open-agent-id-health/pull/23).
