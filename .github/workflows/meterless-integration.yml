@@ -1,0 +1,142 @@
+name: Meterless World Model integration
+on:
+  push:
+  pull_request:
+
+jobs:
+  meterless-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch original Meterless World Model reference
+        run: git clone --depth 1 https://github.com/Meterless/Meterless.git "$RUNNER_TEMP/meterless"
+      - name: Install reference development runner (not TB-CareOS vendoring)
+        run: npm ci --prefix "$RUNNER_TEMP/meterless/engines/world-model/reference"
+      - name: Run genuine World Model against a synthetic E02 fixture
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/meterless_first.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/meterless_first.json"))
+          assert d["input_observations"] == 4
+          assert d["first_pass"]["processed"] == 4
+          assert d["first_pass"]["events_appended"] > 0
+          assert d["replay"]["state_unchanged"]
+          assert d["replay"]["processed"] == 0
+          print("TB-CareOS -> real Meterless ingest: 4 new observations, replay idempotent")
+          PY
+      - name: Reopen persisted World Model and confirm unchanged projection
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/meterless_second.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open("/tmp/meterless_first.json"))
+          b=json.load(open("/tmp/meterless_second.json"))
+          assert b["first_pass"]["processed"] == 0
+          assert b["first_pass"]["events_appended"] == 0
+          assert b["first_pass"]["derived_projection_rebuilt_on_reload"] == b["first_pass"]["state_changed"]
+          assert a["first_pass"]["derived_projection_rebuilt_on_reload"] is False
+          assert b["replay"]["state_unchanged"]
+          assert b["durable_state"]["event_count"] == a["durable_state"]["event_count"]
+          print("Restart persistence: zero duplicate events; audit history reloaded")
+          PY
+      - name: Prepare synthetic E04 explanation and E05 plan (offline fixture)
+        run: |
+          PYTHONPATH=src:. python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from apps.nextstep.plan import plan_case
+          b=json.loads(Path("tests/fixtures/tb_case_018_bundle.json").read_text())
+          exp={
+            "schema_version":"1.0.0","case_id":"CASE-TB-018",
+            "hypotheses":[{
+              "hypothesis":"Administrative review finding: subject_mismatch",
+              "assessment":"supported",
+              "reason":"Synthetic registry CASE-TB-018 references SYN-SUBJ-018 but lab result RES-TB-018 references SYN-SUBJ-999; staff review is required.",
+              "evidence_record_ids":["CASE-TB-018","RES-TB-018"]
+            }],
+            "unresolved_questions":["Can staff verify the registry CASE-TB-018 and lab result RES-TB-018?"],
+            "requires_human_approval":True
+          }
+          Path("/tmp/e08_explanation.json").write_text(json.dumps(exp))
+          Path("/tmp/e08_plan.json").write_text(json.dumps(plan_case(b)))
+          PY
+      - name: Archive E04 and E05 reports in the genuine Meterless World Model
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --explanation /tmp/e08_explanation.json \
+            --plan /tmp/e08_plan.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/e08_first.json
+          python3 - <<'PY'
+          import json
+          previous=json.load(open("/tmp/meterless_second.json"))
+          current=json.load(open("/tmp/e08_first.json"))
+          assert current["input_observations"]==6
+          assert current["input_artifact_types"]==[
+            "careflow_evidence","caselens_explanation","nextstep_plan"]
+          assert current["first_pass"]["processed"]==2
+          assert current["first_pass"]["events_appended"]>0
+          assert current["replay"]["state_unchanged"]
+          assert current["durable_state"]["observation_count"]==previous["durable_state"]["observation_count"]+2
+          assert current["durable_state"]["event_count"]>previous["durable_state"]["event_count"]
+          print("E08 -> real Meterless: 2 new validated agent reports persisted")
+          PY
+      - name: Reopen Meterless and confirm E08 event replay deduplication
+        run: |
+          PYTHONPATH=src:. python3 -m apps.careflow.tb_meterless \
+            --case-id CASE-TB-018 \
+            --bundle tests/fixtures/tb_case_018_bundle.json \
+            --explanation /tmp/e08_explanation.json \
+            --plan /tmp/e08_plan.json \
+            --reference "$RUNNER_TEMP/meterless/engines/world-model/reference" \
+            --state-dir outputs/meterless > /tmp/e08_second.json
+          python3 - <<'PY'
+          import json
+          previous=json.load(open("/tmp/e08_first.json"))
+          current=json.load(open("/tmp/e08_second.json"))
+          assert current["first_pass"]["processed"]==0
+          assert current["first_pass"]["events_appended"]==0
+          assert current["replay"]["state_unchanged"]
+          assert previous["durable_state"]["event_count"]==current["durable_state"]["event_count"]
+          print("E08 persisted agent reports reloaded with no duplicate events")
+          PY
+      - name: Read genuine persisted Meterless event history for product Phase C
+        run: |
+          PYTHONPATH=src:. python3 - <<'PY'
+          import json
+          from apps.product.audit_reader import MeterlessAuditReader
+          from pathlib import Path
+          import os
+          ref=Path(os.environ["RUNNER_TEMP"])/"meterless/engines/world-model/reference"
+          reader=MeterlessAuditReader(ref, "outputs/meterless")
+          previous=json.load(open("/tmp/e08_second.json"))
+          first=reader.read("CASE-TB-018")
+          second=reader.read("CASE-TB-018")
+          assert first==second, "The read-only event index must be stable"
+          assert first["store"]=="real_meterless_reference"
+          assert first["event_count"]==previous["durable_state"]["event_count"]
+          assert first["audit_count"]==previous["durable_state"]["audit_count"]
+          assert first["has_persisted_events"]
+          assert first["events"]
+          assert first["events"][-1]["event_id"]==previous["durable_state"]["most_recent_events"][-1]["event_id"]
+          assert all(e["event_id"].startswith("evt_") for e in first["events"])
+          assert first["timestamp_meaning"].startswith("Synthetic evidence snapshot")
+          print("Product C: genuine persisted Meterless events retrieved read-only; no new ingest")
+          PY

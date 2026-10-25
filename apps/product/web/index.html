@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>TBCare · Administrative Review</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/theme.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#investigation">Skip to investigation</a>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark" aria-hidden="true">T</div><div><b>TBCare</b><span>TB programme workspace</span></div></div>
+    <div class="side-label">Workspace</div>
+    <div class="nav-active" aria-current="page"><span class="nav-glyph" aria-hidden="true">▤</span> Case records</div>
+    <div class="side-label side-label-second">Synthetic case records <span id="case-count" class="count">—</span></div>
+    <p class="list-hint">Select a case to inspect retrieved evidence and outstanding discrepancies.</p>
+    <label for="case-search" class="sr-only">Search synthetic case ID</label>
+    <input id="case-search" type="search" placeholder="Search case ID…" autocomplete="off" aria-describedby="case-keyboard-help">
+    <p id="case-keyboard-help" class="list-hint">Use ↑ ↓ to move between cases; Enter to open.</p>
+    <div id="case-list" class="case-list" role="group" aria-label="Synthetic case list"><div class="loading-list">Loading case IDs…</div></div>
+    <div class="side-label side-review-label">Local review notes <span id="activity-count" class="count">0</span></div>
+    <div id="review-activity" class="review-activity-list" aria-label="Locally recorded review activity"><p>None recorded yet</p></div>
+    <div class="side-footer">
+      <div class="safe-icon" aria-hidden="true">i</div>
+      <b>Demonstration environment</b>
+      <p>Synthetic records only. No patient contact, clinical decisions or official system updates.</p>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="crumbs"><strong>TB programme</strong><span> / </span>Case review <span> / </span><span id="crumb-case">No case selected</span></div>
+      <div class="top-right"><span id="source-mode">Checking source mode…</span><span class="divider-v"></span><span class="read-only-label">SYNTHETIC · READ-ONLY</span></div>
+    </div>
+    <div class="content">
+      <div class="headline">
+        <div>
+          <div class="eyebrow">TB RECORD RECONCILIATION / CASE REVIEW</div>
+          <div class="case-identity"><h1 id="case-title">Select a case</h1><span id="case-status" class="case-status" data-state="not_checked" role="status" aria-live="polite">Not checked</span></div>
+          <p id="case-subtitle">Inspect available documentation, verify discrepancies and record an administrative review note.</p>
+        </div>
+        <button id="refresh" type="button" class="button secondary" disabled>Refresh evidence</button>
+      </div>
+      <div class="notice" role="note"><span aria-hidden="true">i</span><div><strong>SIMULATED DATA — NOT FOR CLINICAL USE.</strong> Missing digital evidence does not establish missed care. TBCare performs no official record updates or patient contact.</div></div>
+      <section class="demo-picker" aria-labelledby="demo-picker-title">
+        <div class="demo-intro"><span class="demo-kicker">QUICK RECORD ACCESS</span><h2 id="demo-picker-title">Example case IDs</h2><p>Each selection retrieves its own current source snapshot.</p></div>
+        <div class="demo-options" role="group" aria-label="Synthetic scenario shortcuts">
+          <button type="button" class="scenario" data-demo-case="CASE-TB-001"><span class="scenario-index">01</span><strong>No flagged discrepancy</strong><small>CASE-TB-001 · evidence-first review</small></button>
+          <button type="button" class="scenario" data-demo-case="CASE-TB-009"><span class="scenario-index">02</span><strong>Unreturned lab document</strong><small>CASE-TB-009 · source uncertainty</small></button>
+          <button type="button" class="scenario" data-demo-case="CASE-TB-018"><span class="scenario-index">03</span><strong>Subject-reference mismatch</strong><small>CASE-TB-018 · conflicting identifiers</small></button>
+        </div>
+      </section>
+      <nav id="investigation" class="journey" aria-label="Investigation workflow">
+        <div class="journey-header"><div><span class="demo-kicker">REVIEW WORKFLOW</span><h2>Records → findings → verification → review</h2><p id="journey-summary" aria-live="polite">Select a case to begin. Nothing runs automatically except read-only evidence retrieval.</p></div><button type="button" id="journey-continue" class="button primary" disabled>Choose a case</button></div>
+        <div class="journey-steps">
+          <button type="button" class="journey-step" data-journey-target="findings-card" disabled><span class="journey-index">1</span><span class="journey-copy"><strong>Inspect sources</strong><small id="step-evidence">Not checked</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="agent-investigation" disabled><span class="journey-index">2</span><span class="journey-copy"><strong>Ask the agents</strong><small id="step-agents">Not requested</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="review-panel" disabled><span class="journey-index">3</span><span class="journey-copy"><strong>Record a note</strong><small id="step-review">No local note</small></span></button>
+          <button type="button" class="journey-step" data-journey-target="meterless-audit" disabled><span class="journey-index">4</span><span class="journey-copy"><strong>Inspect audit</strong><small id="step-audit">Not checked</small></span></button>
+        </div>
+      </nav>
+      <div id="error" class="error" role="alert" hidden></div>
+      <div id="content-empty" class="empty-cover"><div class="empty-emblem" aria-hidden="true">○</div><h2>Start with a case</h2><p>Select a synthetic case to retrieve the latest available evidence through the bounded read-only connector.</p></div>
+      <div id="case-content" hidden>
+        <div class="metrics">
+          <div class="metric"><div class="metric-label">Evidence records</div><div id="stat-evidence" class="metric-value">—</div><div class="metric-foot">Source-linked records</div></div>
+          <div class="metric"><div class="metric-label">Source checks</div><div id="stat-checks" class="metric-value">—</div><div class="metric-foot">Query outcomes</div></div>
+          <div class="metric"><div class="metric-label">Administrative findings</div><div id="stat-findings" class="metric-value">—</div><div class="metric-foot">Requires verification</div></div>
+          <div class="metric"><div class="metric-label">Local review notes</div><div id="stat-reviews" class="metric-value small-value">None</div><div class="metric-foot">Not a sign-off or clinical action</div></div>
+        </div>
+        <div class="two-col">
+          <section class="card" id="findings-card"><div class="card-head"><div><h2>Administrative discrepancies</h2><p>Retrieved findings with source IDs · No clinical determination</p></div><span class="chip warn">Human review</span></div><div id="findings" class="section-body"></div></section>
+          <section class="card"><div class="card-head"><div><h2>Source verification</h2><p>Read-only query status for this case</p></div><span class="chip">Zetaris</span></div><div id="sources" class="section-body"></div></section>
+        </div>
+        <section class="card agent-card" id="agent-investigation"><div class="card-head"><div><h2>Explanation and verification</h2><p>Optional AI assistance · Output does not approve or resolve a case</p></div><span class="chip">Human review required</span></div>
+          <div class="agent-grid">
+            <div class="agent"><div class="agent-top"><span class="agent-icon" aria-hidden="true">01</span><div><b>Explain the evidence</b><span>CaseLens · Cited records and uncertainty</span></div></div><button id="explain" type="button" class="button primary" aria-busy="false" data-phase="idle">Generate explanation →</button><div id="explain-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="explanation" class="agent-result"></div></div>
+            <div class="agent"><div class="agent-top"><span class="agent-icon" aria-hidden="true">02</span><div><b>Suggest verification steps</b><span>NextStep · Read-only proposals, not executed</span></div></div><button id="plan" type="button" class="button primary" aria-busy="false" data-phase="idle">Generate verification plan →</button><div id="plan-status" class="agent-status" role="status" aria-live="polite">Not requested</div><div id="plan-result" class="agent-result"></div></div>
+          </div>
+          <p class="agent-disclaimer"><strong>No automatic actions.</strong> Agent generation can call the NVIDIA hosted model, but proposed checks are not executed and nobody is contacted by this application.</p>
+        </section>
+      <section id="activity-center" class="activity-center" aria-labelledby="activity-title">
+        <div class="activity-heading">
+          <div><span class="demo-kicker">SERVER EVENT HISTORY</span><h2 id="activity-title">Agent activity</h2>
+            <p>Server-recorded checkpoints, not the model's private thinking. Review handoffs still require staff.</p>
+          </div>
+          <div class="activity-controls"><span id="activity-unread" class="activity-unread">0 new</span><button id="activity-mark-seen" type="button" class="button secondary">Mark as seen</button></div>
+        </div>
+        <p id="activity-status" class="activity-status" role="status">Select a synthetic case to view observed activity.</p>
+        <div id="activity-feed" class="activity-feed" aria-label="Recent server-recorded application activity"></div>
+        <p id="activity-toast" class="sr-only" role="status" aria-live="polite"></p>
+        <p class="activity-disclosure">This is a local application activity log, separate from persisted Meterless World Model events and from reviewer-note history. No notification delivery occurs when the page or local server is closed. No actions are automatically executed.</p>
+      </section>
+        <section class="card"><div class="card-head"><div><h2>Source evidence ledger</h2><p>Retrieved rows with event time, provenance and synthetic subject reference</p></div><span id="timeline-count" class="chip">0 events</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Observed (UTC)</th><th>Evidence source</th><th>Business ID</th><th>Source record</th><th>Synthetic subject</th></tr></thead><tbody id="timeline"></tbody></table></div>
+        </section>
+        <section class="card review-card" id="review-panel">
+          <div class="card-head"><div><h2>Administrative review note</h2><p>Fictional local record linked to one cited discrepancy</p></div><span class="chip warn">Local-only record</span></div>
+          <div class="review-info">This records a <strong>fictional administrative reviewer note</strong> in local append-only history. It does not approve a case, verify a real identity, execute a NextStep check, communicate with anyone, or change Zetaris data.</div>
+          <div class="review-grid">
+            <form id="review-form" autocomplete="off">
+              <div class="form-row"><label for="review-finding">Finding to review</label><select id="review-finding" required></select></div>
+              <div class="form-row"><label for="review-disposition">Administrative disposition</label>
+                <select id="review-disposition" required>
+                  <option value="request_source_verification">Request source-record verification (proposed only)</option>
+                  <option value="escalate_admin_review">Escalate for administrative review (local note only)</option>
+                  <option value="reviewed_unresolved">Reviewed; remains unresolved</option>
+                </select>
+              </div>
+              <div class="form-row"><label for="reviewer-label">Fictional reviewer label</label><input id="reviewer-label" value="DEMO-REVIEWER" maxlength="29" pattern="DEMO-[A-Z0-9_-]{2,24}" required><small>Fictional DEMO-* tag only; no real names or identifying details</small></div>
+              <div class="form-row"><label for="review-note">Administrative reason / next verification</label><textarea id="review-note" rows="3" minlength="12" maxlength="280" required placeholder="Verify the cited synthetic source-row references with an authorized administrator; status remains unresolved."></textarea><small>12–280 characters. Avoid clinical claims, real identifiers, links and patient outreach.</small></div>
+              <label class="review-confirm"><input id="review-confirm" type="checkbox" required><span>I understand this is an administrative note in a synthetic local demo, not a case approval or an action in an external system.</span></label>
+              <button class="button primary review-submit" type="submit" id="save-review">Record local review note</button>
+              <p id="review-status" role="status" aria-live="polite"></p>
+            </form>
+            <div class="review-ledger"><div class="ledger-title">Recorded history <span id="review-total" class="chip muted">0 events</span></div><div id="review-history" aria-live="polite">No local notes recorded for this case.</div><div class="history-help">Timestamp = actual local review submission in UTC. It is not a source-event timestamp. The reviewer label is self-entered, not authenticated.</div></div>
+          </div>
+        </section>
+        <section class="card audit-card" id="meterless-audit">
+          <div class="card-head"><div><h2>Local audit history</h2><p>Previously persisted Meterless events · Not generated by viewing this page</p></div><button id="reload-audit" type="button" class="button secondary">↻ Refresh audit</button></div>
+          <div class="audit-notice"><strong>Audit distinctions:</strong> these event IDs and event kinds are read from Meterless; no events are generated by opening this panel. The event timestamps represent synthetic evidence/event time, not the actual time Nemotron ran or the reviewer recorded a note. Local human-review notes above are <strong>not yet archived in Meterless</strong>.</div>
+          <p id="audit-status" class="audit-status" role="status" aria-live="polite">Select a case to read persisted event history.</p>
+          <div id="audit-body" hidden>
+            <div class="audit-metrics">
+              <div><span>Persisted events</span><strong id="audit-event-count">—</strong></div>
+              <div><span>Audit entries</span><strong id="audit-entry-count">—</strong></div>
+              <div><span>Showing most recent</span><strong id="audit-visible-count">—</strong></div>
+            </div>
+            <div id="audit-event-list" class="audit-event-list" aria-label="Persisted Meterless event index"></div>
+            <p id="audit-truncation" class="audit-truncation"></p>
+          </div>
+        </section>
+      </div>
+      <footer>TBCare · Synthetic administrative evidence · Not for clinical decisions</footer>
+    </div>
+  </main>
+</div>
+</body>
+</html>

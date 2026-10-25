@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "CASE-TB-018",
+  "observations": [
+    {
+      "record_id": "CASE-TB-018",
+      "source_system": "CASES_SIM",
+      "source_record_id": "CASE-TB-018",
+      "subject_ref": "SYN-SUBJ-018",
+      "record_type": "cases",
+      "observed_at": "2026-09-18T08:00:00Z",
+      "details": {
+        "case_id": "CASE-TB-018",
+        "source_table": "cases"
+      }
+    },
+    {
+      "record_id": "ORD-TB-018",
+      "source_system": "LAB_SIM",
+      "source_record_id": "ROW-ORD-018-A",
+      "subject_ref": "SYN-SUBJ-018",
+      "record_type": "lab_orders",
+      "observed_at": "2026-09-18T11:00:00Z",
+      "details": {
+        "case_id": "CASE-TB-018",
+        "source_table": "lab_orders"
+      }
+    },
+    {
+      "record_id": "RES-TB-018",
+      "source_system": "LAB_SIM",
+      "source_record_id": "ROW-RES-018-A",
+      "subject_ref": "SYN-SUBJ-999",
+      "record_type": "lab_results",
+      "observed_at": "2026-09-19T11:00:00Z",
+      "details": {
+        "case_id": "CASE-TB-018",
+        "source_table": "lab_results",
+        "order_id": "ORD-TB-018"
+      }
+    }
+  ],
+  "exceptions": [
+    {
+      "category": "subject_mismatch",
+      "description": "Synthetic lab_result subject differs from registry; needs human verification.",
+      "evidence_record_ids": [
+        "CASE-TB-018",
+        "RES-TB-018"
+      ]
+    }
+  ],
+  "source_checks": [
+    {
+      "source_system": "cases",
+      "attempt": 1,
+      "status": "available"
+    },
+    {
+      "source_system": "lab_orders",
+      "attempt": 1,
+      "status": "available"
+    },
+    {
+      "source_system": "lab_results",
+      "attempt": 1,
+      "status": "available"
+    }
+  ],
+  "requires_human_approval": true
+}

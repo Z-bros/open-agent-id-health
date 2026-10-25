@@ -1,0 +1,40 @@
+name: TBCare optional Next.js frontend
+
+on:
+  push:
+    paths:
+      - "apps/tbcare-next/**"
+      - ".github/workflows/tbcare-next-frontend.yml"
+  pull_request:
+    paths:
+      - "apps/tbcare-next/**"
+      - ".github/workflows/tbcare-next-frontend.yml"
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/tbcare-next
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+      - name: Source contract checks
+        run: |
+          npm run test:static
+          npm run test:agentic
+          npm run test:integration
+          npm run test:brief
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Production build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_TBCARE_MODE: demo
+          TBCARE_ENABLE_LOCAL_PROXY: "0"
+        run: npm run build

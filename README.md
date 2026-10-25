@@ -1,68 +1,99 @@
-# TB-CareOS — Indonesian TB evidence investigation (monorepo)
+# TBCare — synthetic TB administrative evidence investigation
 
-**Prebuild status, 21 October 2026:** repository structure and JSON contracts prepared before the official hackathon build window (22 Oct 00:00 UTC / 07:00 WIB). These are **not** three finished agents or submissions. [Pre-existing work disclosure](docs/prebuild-disclosure.md).
+**Hackathon integration candidate.** TBCare is a localhost-first, **synthetic-data-only** workspace for investigating inconsistent tuberculosis-program *administrative records*. It is not a clinical system, does not access the Indonesian national SITB/SATUSEHAT production systems, and must not be used with real patient data.
 
-TB-CareOS explores **administrative follow-up evidence discrepancies** for Indonesian Puskesmas TB coordinators, using **entirely fabricated** screening, laboratory and follow-up records. It does **not** connect to SITB/SATUSEHAT, diagnose, prescribe, contact patients, or assert that a missing digital record means missed care.
+The interface follows **Inspect → Explain → Propose → Human Review**. All source reads are read-only; all generated verification checks are **proposals, not executed actions**. Technically validated model outputs do not close a case.
 
-## Three independently testable candidate apps
+## What actually works
 
-| App | Independent purpose | State before kickoff |
-| --- | --- | --- |
-| [CareFlow](apps/careflow/README.md) | Reconcile separate record sources; flag mismatches and missing/unavailable evidence | Old deterministic generic prototype works; TB Zetaris integration planned |
-| [CaseLens](apps/caselens/README.md) | Investigate *why* a mismatch is flagged; cite evidence and uncertainty | Design and CLI placeholder only |
-| [NextStep](apps/nextstep/README.md) | Decide permitted next evidence query or human escalation using bounded planner/critic | Design and CLI placeholder only |
-| [Dashboard](apps/dashboard/README.md) | Unified human-review interface | Design only |
+| Layer | Implementation and verification boundary |
+| --- | --- |
+| Zetaris | Official read-only helper queries five locally registered **fabricated** source tables in `TBCARE_OS`; 36/36 cases passed the E09 source/contract evaluation on 23 Oct 2026. |
+| CareFlow | Deterministic administrative discrepancies with retrieved record IDs and explicit source-check statuses. |
+| CaseLens | On-demand hosted NVIDIA Nemotron explanations, checked by deterministic citation/structure/safety validators; rejection is shown as rejection. |
+| NextStep | On-demand model-selected **allowlisted** read-only verification *proposals*, independently checked by a bounded critic and terminated with manual review + stop. |
+| Human review | Local, fictional, append-only note ledger with evidence snapshot checks, no authentication or official approval. |
+| Meterless | Genuine upstream World Model persistence and read-only historical event viewer. **Archival is initiated by a separate CLI**, not automatically when the browser calls the agents. |
+| Activity | Server-observed processing checkpoints in a separate local ledger; neither Meterless events nor model chain-of-thought. |
 
-The intended flow is **CareFlow → CaseLens → NextStep → staff review**. Every app should also support **standalone evaluation from a saved synthetic evidence bundle**, independently of other running app services. See [system architecture](docs/architecture.md) and [shared contracts](shared/README.md).
+**Evidence:** the participant verified the 36-case source integrity run (163 observations, 21 rule-based findings; [E09](docs/e09-verified-evaluation-results.md)). A selected six-case hosted Nemotron evaluation accepted 8 of 10 outputs; two failed closed ([E10](docs/e10-verified-nemotron-results.md)). On 25 Oct, CASE-TB-006 had independently validated browser CaseLens/NextStep runs and a separate manual archival of validated artifacts in Meterless (18 persisted events, replay added zero canonical events). These measurements are synthetic administrative contract tests—not diagnostic accuracy, independent ground-truth precision/recall, or verified patient outcomes.
 
-### Repo map
+## Run the product — two frontends, one Python backend
 
-```text
-apps/
-  careflow/               Legacy CLI wrapper and future reconciliation API
-  caselens/               Planned evidence explanation agent
-  nextstep/               Planned bounded verification planner
-  dashboard/              Planned staff-review UI
-shared/
-  contracts/              v1 JSON message schemas and example fixtures
-  zetaris/                Planned read-only source adapter
-  meterless/              Planned World Model state/audit adapter
-  inference/              Planned authorized Nemotron/provider adapter
-src/healthagent/          Preserved original Python package, CLI, tests
-data/synthetic/           Existing tiny prototype fixture; new TB v1 is separate ZIP
-tests/                    Existing five regression tests + contract checks
-docs/submissions/         Candidate submission boundaries, not eligibility proof
-```
+**Prerequisites:** Python 3.10+, Node.js 22 recommended for the optional Next.js frontend, locally configured read-only Zetaris helper, and (only for live agent calls) a valid `NVIDIA_API_KEY` in the **Python process environment**. Upstream Meterless checkout/npm dependencies are required only for archival and the real audit viewer.
 
-### Existing working demo (unchanged)
-
-Requires Python 3.10+:
+Run from the repository root:
 
 ```bash
-python -m pip install -e .
-healthagent --list
-healthagent --case CASE-TB-CONFLICT
-python -m apps.careflow --case CASE-TB-CONFLICT
-python -m unittest discover -s tests -v
+python3 -m pip install -e .
+PYTHONPATH=src:. python3 -m unittest discover -s tests -v
+PYTHONPATH=src:. python3 -m apps.product \
+  --helper "$HOME/zetaris-getting-started/scripts/query_zetaris.py" \
+  --namespace TBCARE_OS \
+  --model nvidia/nemotron-3.5-lightning-30b-a3b \
+  --review-dir outputs/reviews \
+  --activity-dir outputs/activities \
+  --meterless-reference "$HOME/Meterless/engines/world-model/reference" \
+  --meterless-state-dir outputs/meterless \
+  --port 8765
 ```
 
-Existing `data/synthetic/records.json` includes earlier generic non-TB cases. Its CLI and tests are intentionally retained. `python -m apps.caselens --help` and `python -m apps.nextstep --help` show only *placeholder* interfaces, **not running agents**.
+Open **http://127.0.0.1:8765** for the verified dependency-light Python-served interface.
 
-### Synthetic TB benchmark
+Optional **Next.js 15 / React 19** interface, now tracked under [`apps/tbcare-next`](apps/tbcare-next/README.md):
 
-The separate fabricated **36-case tb_v1 ZIP** was prepared on 21 Oct and distributed to the participant. It was **not imported to this GitHub repository by this structural commit**. Extract it under `data/synthetic/tb_v1/` (keep its manifest, schema, verification script and disclosure). The `ground_truth_holdout.csv` must not be an agent input. See [data instructions](data/synthetic/README.md).
+```bash
+cd apps/tbcare-next
+npm install
+npm run test:static && npm run test:agentic && npm run test:integration && npm run test:brief
+npm run typecheck && npm run build
+npm run dev -- --port 3001
+```
 
-### Integration readiness is not application integration
+Next.js starts in *explicit demo mode*: the three UI fixtures are simulated and do not call the backend. To connect Next.js to the **already-running** local Python server, put exactly the following in `apps/tbcare-next/.env.local` and **restart Next.js**:
 
-- **Zetaris:** local Docker platform installation passed 9/9 verification checks and queried sample rows; no TB dataset ingested yet.
-- **Meterless World Model:** upstream TypeScript reference passed 10/10 tests and idempotency smoke check; no app-specific event adapter yet.
-- **Meterless inference / NVIDIA Nemotron:** organizer-approved URL/credential/model and actual inference remain unverified. World Model is **not** an LLM.
-- **Cursor:** AI workspace read and summarized repository; file generation/execution and Space XAI account status remain to verify.
+```env
+NEXT_PUBLIC_TBCARE_MODE=local
+TBCARE_ENABLE_LOCAL_PROXY=1
+```
 
-### Competition and safety
+Check `curl -fsS http://127.0.0.1:3001/api/backend/cases`; a successful inventory response proves only the proxy, not a successful source or model call. Case selection then fetches actual synthetic source evidence; explanation and planning are separately invoked. **Never enable this local proxy on a publicly deployed frontend.** A public demo must stay in clearly labeled fixture mode.
 
-Multiple entries per team and shared repository across tracks are **not yet confirmed**. Orientation previously said “one team, one track.” Treat three apps as an architecture until HackOS/organizers explicitly authorize multiple entries. Fallback: one integrated TB-CareOS entry.
+If Zetaris is unavailable, use the original Python fixture-only mode:
 
-See [problem decision](docs/problem-decision.md), [source evidence](docs/source-evidence.md), [sponsor plan](docs/sponsor-integration.md) and [submission plans](docs/submissions/README.md).
+```bash
+PYTHONPATH=src:. python3 -m apps.product --fixture tests/fixtures/tb_case_018_bundle.json --port 8765
+```
 
-Use fabricated/non-identifiable data only. Human approval required for any administrative follow-up. Keep keys, real patient data and platform environment files out of Git. Final deadline per orientation: **27 Oct 23:45 UTC / 28 Oct 06:45 WIB**.
+This displays one saved fabricated evidence bundle; it does **not** invent live hosted AI responses. More complete runbooks: [Python product](apps/product/README.md), [Next.js integration](docs/tbcare-next-frontend-integration.md), [Meterless E03](docs/e03-meterless-runbook.md), [E08 agent archival](shared/meterless/E08-AUDIT.md), [Phase G](docs/phase-g-activity-contract.md).
+
+## Architecture and guardrails
+
+```text
+Next.js localhost UI (optional) --loopback proxy--> Python localhost product API
+                                                       |
+                                       Zetaris read-only synthetic tables
+                                                       |
+                                           CareFlow deterministic findings
+                                                       |
+                              explicit CaseLens and/or NextStep Nemotron calls
+                                                       |
+                           strict citation / schema / action-bounds validation
+                                                       |
+                 local review notes             separate observed activity log
+
+Separate CLI: validated saved reports -> real Meterless WorldModel.ingest
+Read-only audit UI: previously persisted Meterless event metadata
+```
+
+No automatic proposed-query execution, patient contact, diagnosis, treatment recommendation, approved record change, authenticated reviewer workflow, background worker, or official integration exists. `not_found` means **this query returned zero rows**, never proof of missed care. Evidence timestamps, runtime activity timestamps and local review-note timestamps are not interchangeable.
+
+## Source and submission status
+
+- Original Python workbench lives at [`apps/product`](apps/product).
+- The optional bilingual case-explorer frontend lives at [`apps/tbcare-next`](apps/tbcare-next); source files are tracked, with no design-reference PNGs or secrets.
+- GitHub Actions test Python/offline contracts and genuine Meterless fixture ingestion; Next.js has its own build/typecheck workflow.
+- Current changes are staged in **draft PR #23** for review against `main`, **not yet merged**. See [submission readiness](docs/submissions/tbcare-submission-readiness-2026-10-25.md).
+- Historical scaffolding and pre-kickoff provenance remain in Git history; see [prebuild disclosure](docs/prebuild-disclosure.md).
+
+**Not production-ready.** The local proxy and review notes have no production authentication, authorization, or patient-data protections. Use entirely fabricated identifiers and keep `.env`, API keys, `outputs/`, and the benchmark ground-truth holdout out of Git.
