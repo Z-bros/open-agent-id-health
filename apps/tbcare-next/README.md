@@ -8,7 +8,7 @@ See [DESIGN_IMPLEMENTATION.md](DESIGN_IMPLEMENTATION.md) for the current design 
 
 An editable, runnable **UI starter**, not an integrated production system, based on `TB-CareOS_Product_Team_Integration_Handoff(1).md` (23 Oct 2026) and its reference branch `feat/product-phase-f-caselens-schema-prompt` in [`Z-bros/open-agent-id-health`](https://github.com/Z-bros/open-agent-id-health).
 
-**What this is:** a clean white/blue evidence-first administrative investigation interface with **English + Bahasa Indonesia** toggle, responsive layouts, case explorer, the four-stage investigation journey, source provenance, independent CaseLens/NextStep panels, local-review form, activity page, and read-only World Model audit states.
+**What this is:** a restrained teal/white, evidence-first administrative investigation interface with **English + Bahasa Indonesia** toggle, responsive layouts, case explorer, the four-stage investigation journey, source provenance, independent CaseLens/NextStep panels, local-review form, activity page, and read-only World Model audit states.
 
 ## Agentic UX enhancements (v0 iteration)
 
@@ -18,7 +18,7 @@ The new `app/components/AgentActivity.tsx` implements three connected interactio
 2. **Human-in-the-loop checkpoints.** A reviewer must explicitly acknowledge inspection of cited source records and confirm that proposed verification steps remain unexecuted, in addition to the existing review-form confirmation, before the local note button is enabled. This gates only the existing local note—not agent execution, external approval, or staff outreach. Changing cases resets confirmations.
 3. **Asynchronous in-app notifications.** A bell opens a 30-item **session-only** activity center with unread counters, read/clear actions and toast feedback. Notices are emitted on real client-observed source/agent/review/audit outcomes including failures, stale evidence, and accepted/rejected results. Optional **browser notifications** require a click to grant permission and fire only when an already-requested call completes while the tab is hidden. This is not a backend job queue, push notification service, polling workflow, or durable monitoring. Navigating to another case stops tracking its older request in the UI; this does not guarantee cancellation at the Python backend.
 
-The new UI strings are localized into both English and Bahasa Indonesia in `lib/i18n.ts`, and they are styled consistently with the existing medical blue/white design tokens. These additions preserve the original localhost proxy and model safety boundaries.
+The new UI strings are localized into both English and Bahasa Indonesia in `lib/i18n.ts`, and they are styled consistently with the existing teal/white administrative design tokens. These additions preserve the original localhost proxy and model safety boundaries.
 
 Run `npm run test:agentic` to check the component wiring and important safety cues. A full browser build still requires `npm install`.
 
@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:3000**. `npm run typecheck` and `npm run build` are recommended. Use Node 20 or newer.
+By default `npm run dev` serves **http://127.0.0.1:3000**. To follow the root README alongside the Python backend, use `npm run dev -- --port 3001` and open **http://127.0.0.1:3001**. Run `npm run typecheck` and `npm run build`; Node 22 is recommended. This repo currently has no tracked `package-lock.json`, so use `npm install` (not `npm ci`) on a clean clone.
 
 By default it runs **demo mode** with three explicit, hand-authored synthetic UI fixtures: `CASE-TB-001` (no deterministic finding), `CASE-TB-009` (current query did not return a lab-result record; CaseLens mock rejection), and `CASE-TB-018` (subject-reference mismatch; simulated accepted responses). The case inventory displays 36 allowlisted IDs, but only those three have bundled offline evidence; other IDs are *not checked*, not secretly fetched or inferred. Agent responses in demo mode are visibly **simulated**, do not call NVIDIA, and do not claim validation by the actual server. Demo review notes exist in browser memory only (lost on refresh). **No Meterless events are invented.** Design-reference PNGs are not tracked in this repository; they are not needed to run the frontend.
 
@@ -49,7 +49,7 @@ NEXT_PUBLIC_TBCARE_MODE=local
 TBCARE_ENABLE_LOCAL_PROXY=1
 ```
 
-Run the working Python TB-CareOS server on the **same trusted machine** at `http://127.0.0.1:8765`, using its documented external Zetaris, NVIDIA, and Meterless prerequisites. Restart Next.js. Visit `http://127.0.0.1:3000` on that same machine.
+Run the working Python TB-CareOS server on the **same trusted machine** at `http://127.0.0.1:8765`, using its documented external Zetaris, NVIDIA, and Meterless prerequisites. Restart Next.js. Visit `http://127.0.0.1:3001` on that same machine when launching with `--port 3001`.
 
 The optional `app/api/backend/[...parts]/route.ts` adapter makes a **restricted localhost-to-localhost** same-origin API bridge for these existing routes only:
 
@@ -88,7 +88,7 @@ Upload this folder's ZIP or push it to GitHub and import as a project to v0. Alt
 
 ### v0 prompt
 
-> Use the attached TB-CareOS Next.js starter as the source code and improve the visual hierarchy to match the three `public/reference/` screenshots. Keep the clean hospital palette: white, subtle sky-blue, refined navy, restrained semantic status colors. Preserve the English/Indonesian toggle and responsive layout. The product is an administrative evidence review workspace for **fabricated** TB-program records, not a diagnosis or treatment app. Preserve all interactive screens (Case Explorer, Investigations, Review Activity, Audit History). Preserve exact source types, row provenance IDs, and independent CaseLens/NextStep accepted/rejected states. Do not invoke models on case selection; keep both explicit buttons. Do not silently replace rejected AI output. Keep NextStep plans labelled PROPOSED / NOT EXECUTED. Keep local reviewer notes separate from real read-only Meterless events, and never fabricate audit records. Preserve the disabled-by-default loopback API boundary; v0 cloud previews must remain in fixture mode. Do not add direct NVIDIA/browser SQL integrations. Optimize the case → discrepancy → cited evidence → accepted/rejected agents → local human review journey for a 2-minute demonstration.
+> Use the attached TB-CareOS Next.js starter as the source code and improve the visual hierarchy to match the three `public/reference/` screenshots. Keep the restrained public-health administration palette: white, deep teal, neutral grays, restrained semantic status colors. Preserve the English/Indonesian toggle and responsive layout. The product is an administrative evidence review workspace for **fabricated** TB-program records, not a diagnosis or treatment app. Preserve all interactive screens (Case Explorer, Investigations, Review Activity, Audit History). Preserve exact source types, row provenance IDs, and independent CaseLens/NextStep accepted/rejected states. Do not invoke models on case selection; keep both explicit buttons. Do not silently replace rejected AI output. Keep NextStep plans labelled PROPOSED / NOT EXECUTED. Keep local reviewer notes separate from real read-only Meterless events, and never fabricate audit records. Preserve the disabled-by-default loopback API boundary; v0 cloud previews must remain in fixture mode. Do not add direct NVIDIA/browser SQL integrations. Optimize the case → discrepancy → cited evidence → accepted/rejected agents → local human review journey for a 2-minute demonstration.
 
 ## Reference integrity
 
