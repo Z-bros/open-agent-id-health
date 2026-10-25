@@ -11,8 +11,8 @@ This is a **verification ledger**, not an assertion of clinical or production re
 | Browser bridge | 25 Oct CASE-TB-006 actual evidence + observed model activity in local Next.js mode | Full clean-clone/browser accessibility signoff |
 | Meterless | CASE-TB-006 manual source + saved validated CaseLens/NextStep report archival, 18 canonical events; replay yielded zero new canonical events | No automatic UI archival or run-ID correlation |
 | Human review | Local notes with SHA256 snapshot guard, idempotency and fictional label | Reviewer identity not verified, not a real administrative approval |
-| Frontend source | Optional Next.js v0.3.1 added to integrated candidate branch | Next.js source suites, typecheck, and production demo build **passed** in both frontend workflows at `8db3f5ad`; local WSL clean-clone/browser acceptance remains; no tracked lockfile yet, so use `npm install` rather than `npm ci` |
-| Publication | PR #23 contains the integrated candidate, CI checks required | Repository confirmed **public** 25 Oct; the existing Git history/branches/Actions also require secret review; final `main` merge remains explicitly deferred |
+| Frontend source | Optional Next.js v0.3.1 included in `main` via PR #23 | Both frontend source/typecheck/demo-build workflows passed at final integration head `9572ef8`; local WSL clean-clone/browser acceptance remains; no tracked lockfile, so use `npm install` rather than `npm ci` |
+| Publication | PR #23 **merged into `main` on 25 Oct 2026** (`325b27e`); repository is public | Review existing Git history/branches/Actions for secrets and complete independent local acceptance; merge alone is not a security audit |
 | Submission | Architecture, demo cases, evaluation disclosures and runbooks | Record a 1–4 minute video; attach a slide deck, repository, sponsor-tech explanation, pre-existing work disclosure, and team/track fields; submit via HackOS before deadline |
 
 ## Suggested judge walkthrough (synthetic only)
@@ -34,6 +34,6 @@ Original verified reports: [E09](../e09-verified-evaluation-results.md) and [E10
 
 ## CI baseline and release boundary
 
-As checked on 25 October, head `8db3f5ad57ae1216c0d69a57fb8cf554ab333df0` passed all four GitHub workflow runs (offline Python, upstream Meterless, two optional frontend builds). They validate source and fixture behavior, **not** fresh WSL clean-clone/live Zetaris, model credential reliability, or browser accessibility. PR #23 is intentionally draft; do not represent its code as merged into `main`.
+The final PR head `9572ef8664e8dd2a0e27e077b42cbb0594c07d62` passed all four GitHub Actions workflows (offline Python, upstream Meterless, two optional frontend builds) before **PR #23 merged into `main` at `325b27e7b909e65b71d18cd77e2c9e992c620936`** on 25 October 2026. These workflow results validate source and fixture behavior, **not** fresh WSL clean-clone/live Zetaris, model credential reliability, or browser accessibility. GitHub merge confirmation is not a HackOS submission.
 
 For the actual organizer-required submission fields and a four-slide storyline see [`HACKOS-PACKAGE-2026-10-25.md`](HACKOS-PACKAGE-2026-10-25.md). Track 01 is the current recommendation, **not an already confirmed HackOS selection**.
