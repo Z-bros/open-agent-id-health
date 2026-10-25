@@ -1,6 +1,6 @@
 # TBCare — submission build quickstart (synthetic-only)
 
-> Status: candidate branch `integrate/tbcareos-product-g-candidate`. This guide describes localhost software, not production, clinical, SITB or SATUSEHAT integration. **PR #23 is intentionally unmerged.** Date: 25 October 2026.
+> Status: candidate branch `integrate/tbcareos-product-g-candidate`. This guide describes localhost software, not production, clinical, SITB or SATUSEHAT integration. **PR #23 is intentionally unmerged pending explicit release approval.** Date: 25 October 2026.
 
 ## Architecture
 
@@ -24,6 +24,8 @@ python3 -m pip install -e .
 PYTHONPATH=src:. python3 -m unittest discover -s tests -v
 ```
 
+**Frontend install note:** As of 25 October the integrated Next.js frontend has no committed `package-lock.json`. Therefore `npm ci` will fail on a clean clone. Use `npm install --no-audit --no-fund` as in CI until a reviewed lockfile is generated and committed; dependency resolution is not fully pinned.
+
 For live source/model mode, have a working locally configured **official Zetaris query helper**, the fabricated five-table `TBCARE_OS` namespace, and a valid NVIDIA key **in the backend process environment**. Never place the key in `NEXT_PUBLIC_*`.
 
 Start backend, from repository root, in its own WSL terminal:
@@ -44,7 +46,7 @@ Run frontend (if `apps/tbcare-next/package.json` is tracked on this branch), in 
 
 ```bash
 cd apps/tbcare-next
-npm ci
+npm install --no-audit --no-fund
 printf 'NEXT_PUBLIC_TBCARE_MODE=local\nTBCARE_ENABLE_LOCAL_PROXY=1\n' > .env.local
 npm run typecheck
 npm run build
@@ -67,7 +69,7 @@ Browser should show that it is connected. A successful `/api/cases` response pro
 - E10 six-case hosted-model sample: 8/10 validated model outputs; rejection is real and must remain visible.
 - Participant browser observation on CASE-TB-006: independently invoked accepted CaseLens and NextStep, with server activity showing provider wait, validation, technical acceptance and awaiting human review.
 - Separate participant-run Meterless archival of saved validated CASE-TB-006 artifacts: archive contained 18 events, and replay preserved the same 18 events with 0 duplicate processed observations. **Not automatic on browser agent requests.**
-- GitHub CI: offline synthetic Python tests and real upstream Meterless fixture integration passed on the previous integration head. Run current checks after importing the Next.js frontend.
+- GitHub CI: all four workflows passed at integration head `8db3f5ad` on 25 October 2026: Python offline tests, genuine Meterless fixture integration, and both Next.js test/typecheck/build workflows. New commits must be rechecked; none of this substitutes for participant-side WSL/browser acceptance.
 
 ## Explicit limitations
 
