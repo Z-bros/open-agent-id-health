@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const page = read('app/page.tsx');
+const proxy = read('app/api/backend/[...parts]/route.ts');
+const css = read('app/globals.css');
+const api = read('lib/api.ts');
+assert.match(page, /fixtureBundles as fixtures/, 'demo loader must import real fixture bundles');
+assert.match(page, /validated .* Review needed|Validated · Review needed/);
+assert.match(page, /caseActivity\(id\)/, 'visible server activity should poll local backend');
+assert.match(page, /document\.visibilityState !== "visible"/);
+assert.match(proxy, /Cross-origin mutation request rejected/, 'same-origin POST required');
+assert.match(proxy, /"activity"/, 'Phase G activity endpoint allowlisted');
+assert.match(api, /caseActivity:/, 'read-only activity client');
+assert.doesNotMatch(css, /@import url\(/, 'no remote Google font import');
+assert.doesNotMatch(css, /\.logo\{[^}]*linear-gradient/, 'no gradient institutional icon');
+assert.match(css, /\.button\.primary,.button\.primary:hover/);
+console.log('TBCare integration static checks passed (not a replacement for npm build or live acceptance).');
