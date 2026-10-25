@@ -1,6 +1,6 @@
 # TBCare — synthetic TB administrative evidence investigation
 
-**Hackathon integration candidate.** TBCare is a localhost-first, **synthetic-data-only** workspace for investigating inconsistent tuberculosis-program *administrative records*. It is not a clinical system, does not access the Indonesian national SITB/SATUSEHAT production systems, and must not be used with real patient data.
+**Integrated hackathon MVP (25 October 2026).** TBCare is a localhost-first, **synthetic-data-only** workspace for investigating inconsistent tuberculosis-program *administrative records*. It is not a clinical system, does not access the Indonesian national SITB/SATUSEHAT production systems, and must not be used with real patient data.
 
 The interface follows **Inspect → Explain → Propose → Human Review**. All source reads are read-only; all generated verification checks are **proposals, not executed actions**. Technically validated model outputs do not close a case.
 
@@ -93,7 +93,7 @@ No automatic proposed-query execution, patient contact, diagnosis, treatment rec
 - Original Python workbench lives at [`apps/product`](apps/product).
 - The optional bilingual case-explorer frontend lives at [`apps/tbcare-next`](apps/tbcare-next); source files are tracked, with no design-reference PNGs or secrets.
 - GitHub Actions test Python/offline contracts and genuine Meterless fixture ingestion; Next.js has its own build/typecheck workflow.
-- Current changes are staged in **draft PR #23** for review against `main`, **not yet merged**. See [submission readiness](docs/submissions/tbcare-submission-readiness-2026-10-25.md).
+- **Integrated into `main` via [PR #23](https://github.com/Z-bros/open-agent-id-health/pull/23) on 25 Oct 2026** (merge commit [`325b27e`](https://github.com/Z-bros/open-agent-id-health/commit/325b27e7b909e65b71d18cd77e2c9e992c620936)). All four integration-head GitHub Actions workflows passed pre-merge; clean-clone WSL/live-browser acceptance and HackOS submission artifacts remain independent outstanding tasks. See [submission readiness](docs/submissions/tbcare-submission-readiness-2026-10-25.md).
 - Historical scaffolding and pre-kickoff provenance remain in Git history; see [prebuild disclosure](docs/prebuild-disclosure.md).
 
 **Not production-ready.** The local proxy and review notes have no production authentication, authorization, or patient-data protections. Use entirely fabricated identifiers and keep `.env`, API keys, `outputs/`, and the benchmark ground-truth holdout out of Git.
