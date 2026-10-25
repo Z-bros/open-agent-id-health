@@ -1,6 +1,6 @@
 # TBCare — submission build quickstart (synthetic-only)
 
-> Status: candidate branch `integrate/tbcareos-product-g-candidate`. This guide describes localhost software, not production, clinical, SITB or SATUSEHAT integration. **PR #23 is intentionally unmerged pending explicit release approval.** Date: 25 October 2026.
+> Status: **merged into `main` through [PR #23](https://github.com/Z-bros/open-agent-id-health/pull/23) on 25 October 2026** (merge `325b27e`). This guide describes localhost software, not production, clinical, SITB or SATUSEHAT integration.
 
 ## Architecture
 
@@ -11,14 +11,14 @@
 - **Human review**: fictional local JSONL note, not authenticated approval or source update.
 - **Meterless**: genuine upstream World Model persistence and read-only archived event index, separately from server-observed activity.
 
-`apps/product` remains the reliable Python-served fallback. `apps/tbcare-next` is an optional local Next.js workbench; **it must be present in the branch for a clone to run it**. No credentials or untracked `outputs/` data belong in Git.
+`apps/product` remains the reliable Python-served fallback. `apps/tbcare-next` is the optional local Next.js workbench and is now tracked on `main`. No credentials or untracked `outputs/` data belong in Git.
 
 ## One-time installation
 
-Clone this branch, rather than main, until the integration candidate is approved:
+Clone the default `main` branch:
 
 ```bash
-git clone --branch integrate/tbcareos-product-g-candidate https://github.com/Z-bros/open-agent-id-health.git
+git clone https://github.com/Z-bros/open-agent-id-health.git
 cd open-agent-id-health
 python3 -m pip install -e .
 PYTHONPATH=src:. python3 -m unittest discover -s tests -v
@@ -42,7 +42,7 @@ PYTHONPATH=src:. python3 -m apps.product \
   --port 8765
 ```
 
-Run frontend (if `apps/tbcare-next/package.json` is tracked on this branch), in a **different** terminal:
+Run the tracked frontend in a **different** terminal:
 
 ```bash
 cd apps/tbcare-next
@@ -69,7 +69,7 @@ Browser should show that it is connected. A successful `/api/cases` response pro
 - E10 six-case hosted-model sample: 8/10 validated model outputs; rejection is real and must remain visible.
 - Participant browser observation on CASE-TB-006: independently invoked accepted CaseLens and NextStep, with server activity showing provider wait, validation, technical acceptance and awaiting human review.
 - Separate participant-run Meterless archival of saved validated CASE-TB-006 artifacts: archive contained 18 events, and replay preserved the same 18 events with 0 duplicate processed observations. **Not automatic on browser agent requests.**
-- GitHub CI: all four workflows passed at integration head `8db3f5ad` on 25 October 2026: Python offline tests, genuine Meterless fixture integration, and both Next.js test/typecheck/build workflows. New commits must be rechecked; none of this substitutes for participant-side WSL/browser acceptance.
+- GitHub CI: all four workflows passed at final PR integration head `9572ef8` on 25 October 2026, before merge `325b27e`: Python offline tests, genuine Meterless fixture integration, and both Next.js test/typecheck/build workflows. New commits must be rechecked; none of this substitutes for participant-side WSL/browser acceptance.
 
 ## Explicit limitations
 
@@ -83,4 +83,4 @@ Browser should show that it is connected. A successful `/api/cases` response pro
 
 ## Submission preparation
 
-Make sure `apps/tbcare-next` actually exists in the pushed branch before advertising the Next.js UI as reproducible. Keep locally generated `outputs/`, local `.env.local`, dependencies and synthetic oracle files out of the push. Record a short case 001/009/018 walkthrough, screenshot UI, document accepted and rejected model examples, verify no secrets in Git history, then submit ahead of the stated deadline of 28 October 2026 06:45 WIB.
+The complete `apps/tbcare-next` source is now tracked in `main`, but participant WSL clean-clone and live browser acceptance are still unverified. Keep locally generated `outputs/`, local `.env.local`, dependencies and synthetic oracle files out of the push. Record a short case 001/009/018 walkthrough, screenshot UI, document accepted and rejected model examples, verify no secrets in Git history, then submit ahead of the stated deadline of 28 October 2026 06:45 WIB.
